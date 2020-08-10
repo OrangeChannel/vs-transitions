@@ -210,6 +210,9 @@ def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direc
         else:
             pushed = core.std.Splice([stack.resize.Spline36(height=h, src_top=h-(h * n / (frames-1)), src_height=h)[n] for n in range(frames)])
 
+    else:
+        raise ValueError("push: give a proper direction")
+
     return _return_combo(clipa_clean, pushed, clipb_clean)
 
 
@@ -287,5 +290,8 @@ def wipe(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direc
             return core.std.MaskedMerge(clipa, clipb, stack)
 
         wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), functools.partial(_wipe, clipa=clipa_wipe_zone, clipb=clipb_wipe_zone))
+
+    else:
+        raise ValueError("wipe: give a proper direction")
 
     return _return_combo(clipa_clean, wiped, clipb_clean)

@@ -72,7 +72,7 @@ def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: int):
     return clip1_clean, clip2_clean, clip1_t_zone, clip2_t_zone
 
 
-def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int) -> vs.VideoNode:
+def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, /, use_frame_eval: bool = True) -> vs.VideoNode:
     """Cross-fade clips.
     First frame of the fade will be 100% clipa, while last frame will be 100% clipb
     As an example, say we have a 100 frame long black clip and 100 frame long white clip:
@@ -95,15 +95,18 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int) -> vs.VideoNode:
 
     clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames)
 
-    def _fade(n: int, clipa: vs.VideoNode, clipb: vs.VideoNode):
-        return core.std.Merge(clipa, clipb, weight=[n / (frames - 1)])
+    def _fade(n: int):
+        return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[n / (frames - 1)])
 
-    faded = core.std.FrameEval(clipa_fade_zone, functools.partial(_fade, clipa=clipa_fade_zone, clipb=clipb_fade_zone))
+    if use_frame_eval:
+        faded = core.std.FrameEval(clipa_fade_zone, _fade)
+    else:
+        faded = core.std.Splice([core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[n / (frames - 1)])[n] for n in range(frames)])
 
     return _return_combo(clipa_clean, faded, clipb_clean)
 
 
-def fade_to_black(src_clip: vs.VideoNode, frames: int, /):
+def fade_to_black(src_clip: vs.VideoNode, frames: int, /, use_frame_eval: bool = True):
     """
     Simple convenience function to fade a clip to black. Frames will be the number of frames consumed from the end of the src_clip during the transition.
     The first frame of the transition will be 100% of the src_clip, while the last frame of the transition will be a pure black frame.
@@ -125,10 +128,10 @@ def fade_to_black(src_clip: vs.VideoNode, frames: int, /):
             subsampling_h=src_clip.format.subsampling_h
         ).id
     )
-    return fade(src_clip, black_clip_resized, frames)
+    return fade(src_clip, black_clip_resized, frames, use_frame_eval)
 
 
-def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT) -> vs.VideoNode:
+def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT, use_frame_eval: bool = True) -> vs.VideoNode:
     """
     Clipb pushes clipa off of the screen (coming from `direction`) during the transition.
     The first frame of the transition will be 100% of clipa, while the last frame of transition will be 100% of clipb.
@@ -147,6 +150,13 @@ def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direc
         From frame 80-99 the black clip will push the white clip "up" off of the screen, consuming 20 frames from both clips.
         Frame 99, the end of the transition will be pure black.
         Frame 100-179 will be the remainder of the black clip.
+
+    The parameter `use_frame_eval` exists to allow you to change a FrameEval call
+    into a more complex (and probably slower) Trim/Splice series of calls.
+    For normal use, leave this alone.
+    But, as according to stux!, using FrameEval will cause 'Python to lock the GIL'.
+    This has complications when running the vsscript multi-threaded:
+    'If two threads want to each execute any FrameEval at the same time, one has to wait until the other is done.'
     """
     _check_clips(frames, push, clipa, clipb)
 
@@ -154,39 +164,51 @@ def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direc
 
     if direction == Direction.LEFT:
         stack = core.std.StackHorizontal([clipa_push_zone, clipb_push_zone])
+        w = stack.width // 2
 
         def _push(n: int):
-            w = stack.width // 2
-            return stack.resize.Spline36(width=w, src_left=w * n / (frames-1), src_width=w)
+            return stack.resize.Spline36(width=w, src_left=w * n / (frames - 1), src_width=w)
 
-        pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), functools.partial(_push))
+        if use_frame_eval:
+            pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _push)
+        else:
+            pushed = core.std.Splice([stack.resize.Spline36(width=w, src_left=w * n / (frames-1), src_width=w)[n] for n in range(frames)])
 
     elif direction == Direction.RIGHT:
         stack = core.std.StackHorizontal([clipb_push_zone, clipa_push_zone])
+        w = stack.width // 2
 
         def _push(n: int):
-            w = stack.width // 2
-            return stack.resize.Spline36(width=w, src_left=w-(w * n / (frames - 1)), src_width=w)
+            return stack.resize.Spline36(width=w, src_left=w - (w * n / (frames - 1)), src_width=w)
 
-        pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), functools.partial(_push))
+        if use_frame_eval:
+            pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _push)
+        else:
+            pushed = core.std.Splice([stack.resize.Spline36(width=w, src_left=w-(w * n / (frames - 1)), src_width=w)[n] for n in range(frames)])
 
     elif direction == Direction.UP:
         stack = core.std.StackVertical([clipa_push_zone, clipb_push_zone])
+        h = stack.height // 2
 
         def _push(n: int):
-            h = stack.height // 2
             return stack.resize.Spline36(height=h, src_top=h * n / (frames-1), src_height=h)
 
-        pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), functools.partial(_push))
+        if use_frame_eval:
+            pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _push)
+        else:
+            pushed = core.std.Splice([stack.resize.Spline36(height=h, src_top=h * n / (frames-1), src_height=h)[n] for n in range(frames)])
 
     elif direction == Direction.DOWN:
         stack = core.std.StackVertical([clipb_push_zone, clipa_push_zone])
+        h = stack.height // 2
 
         def _push(n: int):
-            h = stack.height // 2
             return stack.resize.Spline36(height=h, src_top=h-(h * n / (frames-1)), src_height=h)
 
-        pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), functools.partial(_push))
+        if use_frame_eval:
+            pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _push)
+        else:
+            pushed = core.std.Splice([stack.resize.Spline36(height=h, src_top=h-(h * n / (frames-1)), src_height=h)[n] for n in range(frames)])
 
     return _return_combo(clipa_clean, pushed, clipb_clean)
 

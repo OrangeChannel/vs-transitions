@@ -252,8 +252,8 @@ def wipe(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direc
     mask_vert = core.std.Transpose(mask).resize.Spline64(clipa.width, clipa.height, dither_type='error_diffusion',
                                 format=mask.format.replace(bits_per_sample=clipa.format.bits_per_sample,
                                                            color_family=vs.GRAY).id)
-    black_clip = core.std.BlankClip(mask_horiz, color=[0])
-    white_clip = core.std.BlankClip(mask_horiz, color=[(1 << mask_horiz.format.bits_per_sample) - 1])
+    black_clip = core.std.BlankClip(mask_horiz, length=1, color=[0])
+    white_clip = core.std.BlankClip(mask_horiz, length=1, color=[(1 << mask_horiz.format.bits_per_sample) - 1])
 
     if direction == Direction.LEFT:
         stack = core.std.StackHorizontal([black_clip, mask_horiz, white_clip])

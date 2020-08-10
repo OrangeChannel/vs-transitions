@@ -216,7 +216,7 @@ def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direc
     return _return_combo(clipa_clean, pushed, clipb_clean)
 
 
-def wipe(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT) -> vs.VideoNode:
+def wipe(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT, use_frame_eval: bool = True) -> vs.VideoNode:
     """
     A moving fade, kind of like a `fade` with a moving mask.
     The direction will be the direction the fade progresses towards.
@@ -256,40 +256,52 @@ def wipe(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direc
     white_clip = core.std.BlankClip(mask_horiz, color=[(1 << mask_horiz.format.bits_per_sample) - 1])
 
     if direction == Direction.LEFT:
+        stack = core.std.StackHorizontal([black_clip, mask_horiz, white_clip])
 
-        def _wipe(n: int, clipa: vs.VideoNode, clipb: vs.VideoNode):
-            stack = core.std.StackHorizontal([black_clip, mask_horiz, white_clip])
-            stack = stack.resize.Spline36(width=mask_horiz.width, src_left=2 * mask_horiz.width * n / (frames - 1), src_width=mask_horiz.width)
-            return core.std.MaskedMerge(clipa, clipb, stack)
+        def _wipe(n: int):
+            stack_ = stack.resize.Spline36(width=mask_horiz.width, src_left=2 * mask_horiz.width * n / (frames - 1), src_width=mask_horiz.width)
+            return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
 
-        wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), functools.partial(_wipe, clipa=clipa_wipe_zone, clipb=clipb_wipe_zone))
+        if use_frame_eval:
+            wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _wipe)
+        else:
+            wiped = core.std.Splice([core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack.resize.Spline36(width=mask_horiz.width, src_left=2 * mask_horiz.width * n / (frames - 1), src_width=mask_horiz.width))[n] for n in range(frames)])
 
     elif direction == Direction.RIGHT:
+        stack = core.std.StackHorizontal([white_clip, core.std.FlipHorizontal(mask_horiz), black_clip])
 
-        def _wipe(n: int, clipa: vs.VideoNode, clipb: vs.VideoNode):
-            stack = core.std.StackHorizontal([white_clip, core.std.FlipHorizontal(mask_horiz), black_clip])
-            stack = stack.resize.Spline36(width=mask_horiz.width, src_left=2 * mask_horiz.width - (2 * mask_horiz.width * n / (frames - 1)), src_width=mask_horiz.width)
-            return core.std.MaskedMerge(clipa, clipb, stack)
+        def _wipe(n: int):
+            stack_ = stack.resize.Spline36(width=mask_horiz.width, src_left=2 * mask_horiz.width - (2 * mask_horiz.width * n / (frames - 1)), src_width=mask_horiz.width)
+            return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
 
-        wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), functools.partial(_wipe, clipa=clipa_wipe_zone, clipb=clipb_wipe_zone))
+        if use_frame_eval:
+            wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _wipe)
+        else:
+            wiped = core.std.Splice([core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack.resize.Spline36(width=mask_horiz.width, src_left=2 * mask_horiz.width - (2 * mask_horiz.width * n / (frames - 1)), src_width=mask_horiz.width))[n] for n in range(frames)])
 
     elif direction == Direction.UP:
+        stack = core.std.StackVertical([black_clip, mask_vert, white_clip])
 
-        def _wipe(n: int, clipa: vs.VideoNode, clipb: vs.VideoNode):
-            stack = core.std.StackVertical([black_clip, mask_vert, white_clip])
-            stack = stack.resize.Spline36(height=mask_vert.height, src_top=2 * mask_vert.height * n / (frames - 1), src_height=mask_vert.height)
-            return core.std.MaskedMerge(clipa, clipb, stack)
+        def _wipe(n: int):
+            stack_ = stack.resize.Spline36(height=mask_vert.height, src_top=2 * mask_vert.height * n / (frames - 1), src_height=mask_vert.height)
+            return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
 
-        wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), functools.partial(_wipe, clipa=clipa_wipe_zone, clipb=clipb_wipe_zone))
+        if use_frame_eval:
+            wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _wipe)
+        else:
+            wiped = core.std.Splice([core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack.resize.Spline36(height=mask_vert.height, src_top=2 * mask_vert.height * n / (frames - 1), src_height=mask_vert.height))[n] for n in range(frames)])
 
     elif direction == Direction.DOWN:
+        stack = core.std.StackVertical([white_clip, core.std.FlipVertical(mask_vert), black_clip])
 
-        def _wipe(n: int, clipa: vs.VideoNode, clipb: vs.VideoNode):
-            stack = core.std.StackVertical([white_clip, core.std.FlipVertical(mask_vert), black_clip])
-            stack = stack.resize.Spline36(height=mask_vert.height, src_top=2 * mask_vert.height - (2 * mask_vert.height * n / (frames - 1)), src_height=mask_vert.height)
-            return core.std.MaskedMerge(clipa, clipb, stack)
+        def _wipe(n: int):
+            stack_ = stack.resize.Spline36(height=mask_vert.height, src_top=2 * mask_vert.height - (2 * mask_vert.height * n / (frames - 1)), src_height=mask_vert.height)
+            return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
 
-        wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), functools.partial(_wipe, clipa=clipa_wipe_zone, clipb=clipb_wipe_zone))
+        if use_frame_eval:
+            wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _wipe)
+        else:
+            wiped = core.std.Splice([core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack.resize.Spline36(height=mask_vert.height, src_top=2 * mask_vert.height - (2 * mask_vert.height * n / (frames - 1)), src_height=mask_vert.height))[n] for n in range(frames)])
 
     else:
         raise ValueError("wipe: give a proper direction")

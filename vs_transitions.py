@@ -53,6 +53,25 @@ def _return_combo(clip1: Optional[vs.VideoNode], clip_middle: vs.VideoNode, clip
         return clip_middle
 
 
+def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: int):
+    """Returns clean (non-transition) and transition sections of the given clips based on frames."""
+    if clip1.num_frames == frames:
+        clip1_t_zone = clip1
+        clip1_clean = None
+    else:
+        clip1_t_zone = clip1[-frames:]
+        clip1_clean = clip1[:-frames]
+
+    if clip2.num_frames == frames:
+        clip2_t_zone = clip2
+        clip2_clean = None
+    else:
+        clip2_t_zone = clip2[:frames]
+        clip2_clean = clip2[frames:]
+
+    return clip1_clean, clip2_clean, clip1_t_zone, clip2_t_zone
+
+
 def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int) -> vs.VideoNode:
     """Cross-fade clips.
     First frame of the fade will be 100% clipa, while last frame will be 100% clipb
@@ -74,19 +93,7 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int) -> vs.VideoNode:
     """
     _check_clips(frames, fade, clipa, clipb)
 
-    if clipa.num_frames == frames:
-        clipa_fade_zone = clipa
-        clipa_clean = None
-    else:
-        clipa_clean = clipa[:-frames]
-        clipa_fade_zone = clipa[-frames:]
-
-    if clipb.num_frames == frames:
-        clipb_fade_zone = clipb
-        clipb_clean = None
-    else:
-        clipb_clean = clipb[frames:]
-        clipb_fade_zone = clipb[:frames]
+    clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames)
 
     def _fade(n: int, clipa: vs.VideoNode, clipb: vs.VideoNode):
         return core.std.Merge(clipa, clipb, weight=[n / (frames - 1)])
@@ -143,19 +150,7 @@ def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direc
     """
     _check_clips(frames, push, clipa, clipb)
 
-    if clipa.num_frames == frames:
-        clipa_push_zone = clipa
-        clipa_clean = None
-    else:
-        clipa_clean = clipa[:-frames]
-        clipa_push_zone = clipa[-frames:]
-
-    if clipb.num_frames == frames:
-        clipb_push_zone = clipb
-        clipb_clean = None
-    else:
-        clipb_clean = clipb[frames:]
-        clipb_push_zone = clipb[:frames]
+    clipa_clean, clipb_clean, clipa_push_zone, clipb_push_zone = _transition_clips(clipa, clipb, frames)
 
     if direction == Direction.LEFT:
         stack = core.std.StackHorizontal([clipa_push_zone, clipb_push_zone])
@@ -223,19 +218,7 @@ def wipe(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direc
     """
     _check_clips(frames, wipe, clipa, clipb)
 
-    if clipa.num_frames == frames:
-        clipa_wipe_zone = clipa
-        clipa_clean = None
-    else:
-        clipa_clean = clipa[:-frames]
-        clipa_wipe_zone = clipa[-frames:]
-
-    if clipb.num_frames == frames:
-        clipb_wipe_zone = clipb
-        clipb_clean = None
-    else:
-        clipb_clean = clipb[frames:]
-        clipb_wipe_zone = clipb[:frames]
+    clipa_clean, clipb_clean, clipa_wipe_zone, clipb_wipe_zone = _transition_clips(clipa, clipb, frames)
 
     mask = core.imwri.Read(r'./sRGB_gradient_1px_16-bit_dither.png')
     mask_horiz = mask.resize.Spline64(clipa.width, clipa.height, dither_type='error_diffusion',

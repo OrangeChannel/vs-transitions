@@ -3,7 +3,7 @@ import enum
 import functools
 import os
 import sys
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 import vapoursynth as vs
 
@@ -53,7 +53,7 @@ def _return_combo(clip1: Optional[vs.VideoNode], clip_middle: vs.VideoNode, clip
         return clip_middle
 
 
-def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: int):
+def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: int) -> Tuple[Optional[vs.VideoNode], Optional[vs.VideoNode], vs.VideoNode, vs.VideoNode]:
     """Returns clean (non-transition) and transition sections of the given clips based on frames."""
     if clip1.num_frames == frames:
         clip1_t_zone = clip1
@@ -106,7 +106,7 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, /, use_frame_eva
     return _return_combo(clipa_clean, faded, clipb_clean)
 
 
-def fade_to_black(src_clip: vs.VideoNode, frames: int, /, use_frame_eval: bool = True):
+def fade_to_black(src_clip: vs.VideoNode, frames: int, /, use_frame_eval: bool = True) -> vs.VideoNode:
     """
     Simple convenience function to fade a clip to black. Frames will be the number of frames consumed from the end of the src_clip during the transition.
     The first frame of the transition will be 100% of the src_clip, while the last frame of the transition will be a pure black frame.

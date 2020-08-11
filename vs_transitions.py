@@ -12,7 +12,7 @@ core = vs.core
 
 
 class Direction(enum.Enum):
-    """Direction enumeration, usually meaning *from* what direction the second clip enters."""
+    """Direction enumeration"""
     LEFT = enum.auto()
     RIGHT = enum.auto()
     UP = enum.auto()

@@ -499,13 +499,21 @@ def squeeze_expand(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direct
     return _return_combo(clipa_clean, squeezed, clipb_clean)
 
 
-def cube_rotate(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT) -> vs.VideoNode:
+def cube_rotate(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT, exaggeration: int = 0) -> vs.VideoNode:
     """
     Mimics a cube face rotation by adjusting the speed at which the squeeze boundary moves.
     Cube face containing clipa rotates away from the viewer in `direction`
+
+    `exaggeration` is an integer between 0 and 100 (inclusive) representing how much the effect of the cosine wave should be exaggerated:
+        0 corresponds to a mathematically correct projection of a 90 degree rotation offset by 45 degrees
+            initial and final velocities are pi/4 (0.785x), middle velocity is pi / (2 * sqrt2) (1.11x)
+        100 corresponds to a fitted cosine wave where the initial and final velocities are 0, while the velocity at the middle is pi/2 (1.571x)
     """
 
     _check_clips(frames, cube_rotate, clipa, clipb)
+
+    if not (0 <= exaggeration <= 100):
+        raise ValueError(f"cube_rotate: exaggeration {exaggeration} not between 0 and 100")
 
     clipa_clean, clipb_clean, clipa_squeeze_zone, clipb_squeeze_zone = _transition_clips(clipa, clipb, frames)
 
@@ -513,17 +521,32 @@ def cube_rotate(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction
         """Return a radian rotation based on `percentage` ranging from -pi/4 at 0% to -3pi/4 at 100%"""
         return (-math.pi/2) * percentage - math.pi/4
 
-    def position(percentage: float) -> float:
+    def position(percentage: float, bias: int) -> float:
         """
         Return position of a rotated edge as a percentage
         0% at 0%, 23% at 25%, 50% at 50%, 77% at 75%, 100% at 100%
         """
-        return round(((-math.cos(rotation(percentage)) + (math.sqrt(2)/2)) / math.sqrt(2)), 9)
+        def _projection(x: float):
+            """mathmatically correct projection"""
+            return (-math.cos(rotation(x)) + (math.sqrt(2)/2)) / math.sqrt(2)
+
+        def _fitted(x: float):
+            """fitted cosine wave to exaggerate the effects"""
+            return -.5*math.cos(2*rotation(x) + math.pi/2)+.5
+
+        if bias == 0:
+            return round(_projection(percentage), 9)
+        elif bias == 100:
+            return round(_fitted(percentage), 9)
+        else:
+            fitted = (bias / 100) * _fitted(percentage)
+            projection = ((100 - bias) / 100) * _projection(percentage)
+            return round(fitted + projection, 9)
 
     if direction in [Direction.LEFT, Direction.RIGHT]:
 
         def _rotate(n: int):
-            clipb_width = math.floor(clipa.width * position(n / (frames - 1)))
+            clipb_width = math.floor(clipa.width * position(n / (frames - 1), exaggeration))
             clipa_width = clipa.width - clipb_width
 
             if clipa_width == clipa.width:
@@ -543,7 +566,7 @@ def cube_rotate(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction
     elif direction in [Direction.UP, Direction.DOWN]:
 
         def _rotate(n: int):
-            clipb_height = math.floor(clipa.height * position(n / (frames - 1)))
+            clipb_height = math.floor(clipa.height * position(n / (frames - 1), exaggeration))
             clipa_height = clipa.height - clipb_height
 
             if clipa_height == clipa.height:

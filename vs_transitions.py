@@ -444,3 +444,56 @@ def expand_slide_out(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, dire
         raise ValueError("expand_slide_out: give a proper direction")
 
     return _return_combo(clipa_clean, squeezed, clipb_clean)
+
+
+def squeeze_expand(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT):
+    """clipa gets squeezed to nothing while clipb expands from nothing, clipb expands towards `direction`"""
+
+    _check_clips(frames, squeeze_expand, clipa, clipb)
+
+    clipa_clean, clipb_clean, clipa_squeeze_zone, clipb_squeeze_zone = _transition_clips(clipa, clipb, frames)
+
+    if direction in [Direction.LEFT, Direction.RIGHT]:
+
+        def _squeeze(n: int):
+            clipb_width = math.floor(clipa.width * n / (frames - 1))
+            clipa_width = clipa.width - clipb_width
+
+            if clipa_width == clipa.width:
+                return clipa_squeeze_zone
+            elif clipb_width == clipa.width:
+                return clipb_squeeze_zone
+            else:
+                clipa_squeezed = clipa_squeeze_zone.resize.Spline36(width=clipa_width)
+                clipb_squeezed = clipb_squeeze_zone.resize.Spline36(width=clipb_width)
+                if direction == Direction.LEFT:
+                    return core.std.StackHorizontal([clipa_squeezed, clipb_squeezed])
+                else:
+                    return core.std.StackHorizontal([clipb_squeezed, clipa_squeezed])
+
+        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
+
+    elif direction in [Direction.UP, Direction.DOWN]:
+
+        def _squeeze(n: int):
+            clipb_height = math.floor(clipa.height * n / (frames - 1))
+            clipa_height = clipa.height - clipb_height
+
+            if clipa_height == clipa.height:
+                return clipa_squeeze_zone
+            elif clipb_height == clipa.height:
+                return clipb_squeeze_zone
+            else:
+                clipa_squeezed = clipa_squeeze_zone.resize.Spline36(height=clipa_height)
+                clipb_squeezed = clipb_squeeze_zone.resize.Spline36(height=clipb_height)
+                if direction == Direction.UP:
+                    return core.std.StackVertical([clipa_squeezed, clipb_squeezed])
+                else:
+                    return core.std.StackVertical([clipb_squeezed, clipa_squeezed])
+
+        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
+
+    else:
+        raise ValueError("squeeze_expand: give a proper direction")
+
+    return _return_combo(clipa_clean, squeezed, clipb_clean)

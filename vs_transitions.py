@@ -497,3 +497,70 @@ def squeeze_expand(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direct
         raise ValueError("squeeze_expand: give a proper direction")
 
     return _return_combo(clipa_clean, squeezed, clipb_clean)
+
+
+def cube_rotate(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT) -> vs.VideoNode:
+    """
+    Mimics a cube face rotation by adjusting the speed at which the squeeze boundary moves.
+    Cube face containing clipa rotates away from the viewer in `direction`
+    """
+
+    _check_clips(frames, cube_rotate, clipa, clipb)
+
+    clipa_clean, clipb_clean, clipa_squeeze_zone, clipb_squeeze_zone = _transition_clips(clipa, clipb, frames)
+
+    def rotation(percentage: float) -> float:
+        """Return a radian rotation based on `percentage` ranging from -pi/4 at 0% to -3pi/4 at 100%"""
+        return (-math.pi/2) * percentage - math.pi/4
+
+    def position(percentage: float) -> float:
+        """
+        Return position of a rotated edge as a percentage
+        0% at 0%, 23% at 25%, 50% at 50%, 77% at 75%, 100% at 100%
+        """
+        return round(((-math.cos(rotation(percentage)) + (math.sqrt(2)/2)) / math.sqrt(2)), 9)
+
+    if direction in [Direction.LEFT, Direction.RIGHT]:
+
+        def _rotate(n: int):
+            clipb_width = math.floor(clipa.width * position(n / (frames - 1)))
+            clipa_width = clipa.width - clipb_width
+
+            if clipa_width == clipa.width:
+                return clipa_squeeze_zone
+            elif clipb_width == clipa.width:
+                return clipb_squeeze_zone
+            else:
+                clipa_squeezed = clipa_squeeze_zone.resize.Spline36(width=clipa_width)
+                clipb_squeezed = clipb_squeeze_zone.resize.Spline36(width=clipb_width)
+                if direction == Direction.LEFT:
+                    return core.std.StackHorizontal([clipa_squeezed, clipb_squeezed])
+                else:
+                    return core.std.StackHorizontal([clipb_squeezed, clipa_squeezed])
+
+        rotated = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _rotate)
+
+    elif direction in [Direction.UP, Direction.DOWN]:
+
+        def _rotate(n: int):
+            clipb_height = math.floor(clipa.height * position(n / (frames - 1)))
+            clipa_height = clipa.height - clipb_height
+
+            if clipa_height == clipa.height:
+                return clipa_squeeze_zone
+            elif clipb_height == clipa.height:
+                return clipb_squeeze_zone
+            else:
+                clipa_squeezed = clipa_squeeze_zone.resize.Spline36(height=clipa_height)
+                clipb_squeezed = clipb_squeeze_zone.resize.Spline36(height=clipb_height)
+                if direction == Direction.UP:
+                    return core.std.StackVertical([clipa_squeezed, clipb_squeezed])
+                else:
+                    return core.std.StackVertical([clipb_squeezed, clipa_squeezed])
+
+        rotated = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _rotate)
+
+    else:
+        raise ValueError("cube_rotate: give a proper direction")
+
+    return _return_combo(clipa_clean, rotated, clipb_clean)

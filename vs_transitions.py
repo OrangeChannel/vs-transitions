@@ -106,6 +106,37 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, /, use_frame_eva
     return _return_combo(clipa_clean, faded, clipb_clean)
 
 
+def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, exponent: int = 1) -> vs.VideoNode:
+    """
+    Cross-fade clips according to a curve.
+    The curve `exponent` is an int in the range from 1-5
+    where 1 represents a parabolic curve, 2 represents a quartic curve,
+    and higher powers more resembling an tight ease-in-out function with constant speed for most of the transition.
+    """
+    _check_clips(frames, poly_fade, clipa, clipb)
+
+    if not (1 <= exponent <= 5):
+        raise ValueError("poly_fade: exponent must be an int between 1 and 5 (inclusive)")
+
+    clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames)
+
+    def get_pos(x: float) -> float:
+        """Returns position as a float 0-1, based on a input percentage float 0-1"""
+
+        def _curve(x: float) -> float:
+            return -(((2 * x - 1) ** (2 * exponent + 1)) / (4 * exponent + 2)) + x - 0.5
+
+        return round(((_curve(1)-_curve(0)) ** -1) * (_curve(x) - _curve(0)), 9)
+
+    def _fade(n: int):
+        percentage = n / (frames - 1)
+        return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[get_pos(percentage)])
+
+    faded = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _fade)
+
+    return _return_combo(clipa_clean, faded, clipb_clean)
+
+
 def fade_to_black(src_clip: vs.VideoNode, frames: int, /, use_frame_eval: bool = True) -> vs.VideoNode:
     """
     Simple convenience function to fade a clip to black. Frames will be the number of frames consumed from the end of the src_clip during the transition.

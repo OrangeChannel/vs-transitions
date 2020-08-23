@@ -1,4 +1,4 @@
-"""Powerpoint transitions implements in VapourSynth."""
+"""Powerpoint transitions implemented in VapourSynth."""
 import enum
 import math
 import os
@@ -19,6 +19,7 @@ class Direction(str, enum.Enum):
     DOWN = 'down'
     HORIZONTAL = 'horizontal'
     VERTICAL = 'vertical'
+
 
 LEFT = Direction.LEFT
 RIGHT = Direction.RIGHT
@@ -256,7 +257,12 @@ def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direc
     return _return_combo(clipa_clean, pushed, clipb_clean)
 
 
-def wipe(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT, use_frame_eval: bool = True) -> vs.VideoNode:
+def wipe(clipa: vs.VideoNode,
+         clipb: vs.VideoNode,
+         frames: int,
+         direction: Direction = Direction.LEFT,
+         use_frame_eval: bool = True,
+         gradient_image: str = r'./sRGB_gradient_1px_16-bit_dither.png') -> vs.VideoNode:
     """
     A moving fade, kind of like a `fade` with a moving mask.
     The direction will be the direction the fade progresses towards.
@@ -281,11 +287,14 @@ def wipe(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direc
         The transition will consume 20 frames from the end of the white clip, and the start of the black clip,
         resulting in a 80 + 20 + 80 = 180 frame long clip.
     """
+    if not os.path.isfile(gradient_image):
+        raise FileNotFoundError(f"wipe: the gradient image {gradient_image} was not found")
+
     _check_clips(frames, wipe, clipa, clipb)
 
     clipa_clean, clipb_clean, clipa_wipe_zone, clipb_wipe_zone = _transition_clips(clipa, clipb, frames)
 
-    mask = core.imwri.Read(r'./sRGB_gradient_1px_16-bit_dither.png')
+    mask = core.imwri.Read(gradient_image)
     mask_horiz = mask.resize.Spline64(clipa.width, clipa.height, dither_type='error_diffusion',
                                 format=mask.format.replace(bits_per_sample=clipa.format.bits_per_sample,
                                                            color_family=vs.GRAY).id)
@@ -629,44 +638,44 @@ def cube_rotate(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction
     return _return_combo(clipa_clean, rotated, clipb_clean)
 
 
-marine = core.ffms2.Source('/home/stalled/marine.mp4')
-marine = marine.resize.Bicubic(format=marine.format.replace(subsampling_w=0, subsampling_h=0).id)[:190]
-pekora = core.ffms2.Source('/home/stalled/pekora.mp4')
-pekora = pekora.resize.Bicubic(format=pekora.format.replace(subsampling_w=0, subsampling_h=0).id)[:190]
-
-
-a=poly_fade(marine, pekora, 170)
-b=poly_fade(marine, pekora, 170, 5)
-c=fade(marine, pekora, 170)
-core.std.StackVertical([a,b,c]).set_output()
-
-# # a = squeeze_expand(marine, pekora, 120).text.Text('linear')
-# # b = cube_rotate(marine, pekora, 120).text.Text('cosine projection')
-# # c = cube_rotate(marine, pekora, 120, exaggeration=50).text.Text('50% bias')
-# # d = cube_rotate(marine, pekora, 120, exaggeration=100).text.Text('fitted cosine (100% bias)')
+# marine = core.ffms2.Source('/home/stalled/marine.mp4')
+# marine = marine.resize.Bicubic(format=marine.format.replace(subsampling_w=0, subsampling_h=0).id)[:190]
+# pekora = core.ffms2.Source('/home/stalled/pekora.mp4')
+# pekora = pekora.resize.Bicubic(format=pekora.format.replace(subsampling_w=0, subsampling_h=0).id)[:190]
 #
-def _blur(n: int):
-    return core.std.BoxBlur(marine, hradius=1, hpasses=n+1, vradius=1, vpasses=n+1)
 #
-core.std.FrameEval(core.std.BlankClip(marine, length=140), _blur).set_output()
-
-def _blur2(n: int):
-    return core.std.BoxBlur(marine, hradius=0, hpasses=n+1, vradius=0, vpasses=n+1)
-
-core.std.FrameEval(marine, _blur2).set_output(1)
-
+# a=poly_fade(marine, pekora, 170)
+# b=poly_fade(marine, pekora, 170, 5)
+# c=fade(marine, pekora, 170)
+# core.std.StackVertical([a,b,c]).set_output()
 #
-# marine.std.BoxBlur(hradius=1, hpasses=1, vradius=1, vpasses=1).set_output()
-# marine.std.BoxBlur(hradius=2, hpasses=1, vradius=2, vpasses=1).set_output(1)
-# marine.std.BoxBlur(hradius=1, hpasses=2, vradius=1, vpasses=2).set_output(2)
-# marine.std.BoxBlur(hradius=2, hpasses=2, vradius=2, vpasses=2).set_output(3)
-# marine.resize.Point(width=marine.width//4, height=marine.width//4).std.Median().resize.Point(width=marine.width, height=marine.height).set_output(5)
-# marine.resize.Point(width=marine.width//4, height=marine.width//4).resize.Point(width=marine.width, height=marine.height).set_output(6)
-# marine.resize.Point(width=marine.width//8, height=marine.width//8).resize.Point(width=marine.width, height=marine.height).set_output(7)
-# marine.resize.Point(width=marine.width//12, height=marine.width//12).std.Median().resize.Point(width=marine.width, height=marine.height).set_output(8)
-# marine.resize.Point(width=marine.width//15, height=marine.width//15).resize.Point(width=marine.width, height=marine.height).set_output(9)
+# # # a = squeeze_expand(marine, pekora, 120).text.Text('linear')
+# # # b = cube_rotate(marine, pekora, 120).text.Text('cosine projection')
+# # # c = cube_rotate(marine, pekora, 120, exaggeration=50).text.Text('50% bias')
+# # # d = cube_rotate(marine, pekora, 120, exaggeration=100).text.Text('fitted cosine (100% bias)')
+# #
+# def _blur(n: int):
+#     return core.std.BoxBlur(marine, hradius=1, hpasses=n+1, vradius=1, vpasses=n+1)
+# #
+# core.std.FrameEval(core.std.BlankClip(marine, length=140), _blur).set_output()
 #
-# # vsutil.iterate(marine, core.std.Median, 5).set_output(4)
-
-
-# def blur_fade
+# def _blur2(n: int):
+#     return core.std.BoxBlur(marine, hradius=0, hpasses=n+1, vradius=0, vpasses=n+1)
+#
+# core.std.FrameEval(marine, _blur2).set_output(1)
+#
+# #
+# # marine.std.BoxBlur(hradius=1, hpasses=1, vradius=1, vpasses=1).set_output()
+# # marine.std.BoxBlur(hradius=2, hpasses=1, vradius=2, vpasses=1).set_output(1)
+# # marine.std.BoxBlur(hradius=1, hpasses=2, vradius=1, vpasses=2).set_output(2)
+# # marine.std.BoxBlur(hradius=2, hpasses=2, vradius=2, vpasses=2).set_output(3)
+# # marine.resize.Point(width=marine.width//4, height=marine.width//4).std.Median().resize.Point(width=marine.width, height=marine.height).set_output(5)
+# # marine.resize.Point(width=marine.width//4, height=marine.width//4).resize.Point(width=marine.width, height=marine.height).set_output(6)
+# # marine.resize.Point(width=marine.width//8, height=marine.width//8).resize.Point(width=marine.width, height=marine.height).set_output(7)
+# # marine.resize.Point(width=marine.width//12, height=marine.width//12).std.Median().resize.Point(width=marine.width, height=marine.height).set_output(8)
+# # marine.resize.Point(width=marine.width//15, height=marine.width//15).resize.Point(width=marine.width, height=marine.height).set_output(9)
+# #
+# # # vsutil.iterate(marine, core.std.Median, 5).set_output(4)
+#
+#
+# # def blur_fade

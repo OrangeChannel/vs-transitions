@@ -11,12 +11,21 @@ sys.path.insert(0, os.path.abspath('.'))
 core = vs.core
 
 
-class Direction(enum.Enum):
+class Direction(str, enum.Enum):
     """Direction enumeration"""
-    LEFT = enum.auto()
-    RIGHT = enum.auto()
-    UP = enum.auto()
-    DOWN = enum.auto()
+    LEFT = 'left'
+    RIGHT = 'right'
+    UP = 'up'
+    DOWN = 'down'
+    HORIZONTAL = 'horizontal'
+    VERTICAL = 'vertical'
+
+LEFT = Direction.LEFT
+RIGHT = Direction.RIGHT
+UP = Direction.UP
+DOWN = Direction.DOWN
+HORIZONTAL = Direction.HORIZONTAL
+VERTICAL = Direction.VERTICAL
 
 
 def _check_clips(frames: int, caller: Callable, *clips: vs.VideoNode) -> None:
@@ -73,7 +82,7 @@ def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: int) -> 
 
 
 def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, /, use_frame_eval: bool = True) -> vs.VideoNode:
-    """Cross-fade clips.
+    """Cross-fade clips. Linear transition.
     First frame of the fade will be 100% clipa, while last frame will be 100% clipb
     As an example, say we have a 100 frame long black clip and 100 frame long white clip:
 
@@ -138,7 +147,7 @@ def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, exponent: i
 
 
 def fade_to_black(src_clip: vs.VideoNode, frames: int, /, use_frame_eval: bool = True) -> vs.VideoNode:
-    """
+    """Linear Transition.
     Simple convenience function to fade a clip to black. Frames will be the number of frames consumed from the end of the src_clip during the transition.
     The first frame of the transition will be 100% of the src_clip, while the last frame of the transition will be a pure black frame.
 
@@ -533,7 +542,7 @@ def squeeze_expand(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direct
 def cube_rotate(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT, exaggeration: int = 0) -> vs.VideoNode:
     """
     Mimics a cube face rotation by adjusting the speed at which the squeeze boundary moves.
-    Cube face containing clipa rotates away from the viewer in `direction`
+    Cube face containing `clipa` rotates away from the viewer in `direction`.
 
     `exaggeration` is an integer between 0 and 100 (inclusive) representing how much the effect of the cosine wave should be exaggerated:
         0 corresponds to a mathematically correct projection of a 90 degree rotation offset by 45 degrees
@@ -618,3 +627,46 @@ def cube_rotate(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction
         raise ValueError("cube_rotate: give a proper direction")
 
     return _return_combo(clipa_clean, rotated, clipb_clean)
+
+
+marine = core.ffms2.Source('/home/stalled/marine.mp4')
+marine = marine.resize.Bicubic(format=marine.format.replace(subsampling_w=0, subsampling_h=0).id)[:190]
+pekora = core.ffms2.Source('/home/stalled/pekora.mp4')
+pekora = pekora.resize.Bicubic(format=pekora.format.replace(subsampling_w=0, subsampling_h=0).id)[:190]
+
+
+a=poly_fade(marine, pekora, 170)
+b=poly_fade(marine, pekora, 170, 5)
+c=fade(marine, pekora, 170)
+core.std.StackVertical([a,b,c]).set_output()
+
+# # a = squeeze_expand(marine, pekora, 120).text.Text('linear')
+# # b = cube_rotate(marine, pekora, 120).text.Text('cosine projection')
+# # c = cube_rotate(marine, pekora, 120, exaggeration=50).text.Text('50% bias')
+# # d = cube_rotate(marine, pekora, 120, exaggeration=100).text.Text('fitted cosine (100% bias)')
+#
+def _blur(n: int):
+    return core.std.BoxBlur(marine, hradius=1, hpasses=n+1, vradius=1, vpasses=n+1)
+#
+core.std.FrameEval(core.std.BlankClip(marine, length=140), _blur).set_output()
+
+def _blur2(n: int):
+    return core.std.BoxBlur(marine, hradius=0, hpasses=n+1, vradius=0, vpasses=n+1)
+
+core.std.FrameEval(marine, _blur2).set_output(1)
+
+#
+# marine.std.BoxBlur(hradius=1, hpasses=1, vradius=1, vpasses=1).set_output()
+# marine.std.BoxBlur(hradius=2, hpasses=1, vradius=2, vpasses=1).set_output(1)
+# marine.std.BoxBlur(hradius=1, hpasses=2, vradius=1, vpasses=2).set_output(2)
+# marine.std.BoxBlur(hradius=2, hpasses=2, vradius=2, vpasses=2).set_output(3)
+# marine.resize.Point(width=marine.width//4, height=marine.width//4).std.Median().resize.Point(width=marine.width, height=marine.height).set_output(5)
+# marine.resize.Point(width=marine.width//4, height=marine.width//4).resize.Point(width=marine.width, height=marine.height).set_output(6)
+# marine.resize.Point(width=marine.width//8, height=marine.width//8).resize.Point(width=marine.width, height=marine.height).set_output(7)
+# marine.resize.Point(width=marine.width//12, height=marine.width//12).std.Median().resize.Point(width=marine.width, height=marine.height).set_output(8)
+# marine.resize.Point(width=marine.width//15, height=marine.width//15).resize.Point(width=marine.width, height=marine.height).set_output(9)
+#
+# # vsutil.iterate(marine, core.std.Median, 5).set_output(4)
+
+
+# def blur_fade

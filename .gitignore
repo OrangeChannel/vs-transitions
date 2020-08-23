@@ -1,0 +1,5 @@
+!vs_transitions.py
+*.mp4
+.idea/*
+*.yml
+!.readthedocs.yml

@@ -4,6 +4,7 @@ import math
 import os
 import sys
 from typing import Callable, Optional, Tuple
+from fractions import Fraction
 
 import vapoursynth as vs
 
@@ -88,35 +89,45 @@ def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: int) -> 
 
 
 def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, /, use_frame_eval: bool = True) -> vs.VideoNode:
-    """Cross-fade clips. Linear transition.
-    First frame of the fade will be 100% clipa, while last frame will be 100% clipb
+    """Cross-fade clips.
+
+    First frame of the fade will be 100% `clipa`, while last frame will be 100% `clipb`.
     As an example, say we have a 100 frame long black clip and 100 frame long white clip:
 
-        >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
-        >>> white = core.std.BlankClip(format=vs.GRAY8, color=[255], length=100)
+    >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
+    >>> white = core.std.BlankClip(format=vs.GRAY8, color=[255], length=100)
 
-        >>> fade(black, white, 100)
-        will result in a pure fade from black to white.
-        The first frame (0) will be pure black, while the last frame (99) will be pure white.
+    >>> fade(black, white, 100)
 
-        >>> fade(black, white, 20)
-        will result in a 20-frame long fade from the end of the black clip through the beginning of the white clip.
-        The first 80 frames (0-79) will be pure black.
-        The first frame of the fade (80) will also be pure black. At this point, we've consumed 1 frame from the beginning of the white clip.
-        The last frame of the fade (99) will be pure white. At this point, we've consumed 20 frames from the white clip.
-        The last 80 frames (100-179) will be pure white.
+    will result in a pure fade from black to white.
+    The first frame (``0``) will be pure black, while the last frame (``99``) will be pure white.
+
+    >>> fade(black, white, 20)
+
+    will result in a 20-frame long fade from the end of the black clip through the beginning of the white clip.
+    The first 80 frames (``0``-``79``) will be pure black.
+    The first frame of the fade (``80``) will also be pure black.
+    At this point, we've consumed 1 frame from the beginning of the white clip.
+    The last frame of the fade (``99``) will be pure white.
+    At this point, we've consumed 20 frames from the white clip.
+    The last 80 frames (``100``-``179``) will be pure white.
+    The correct way to line up audio with this would be to crossfade 20 frames from the black clip into the white clip,
+    i.e. using the last 20 frames worth of audio from the black clip and the first 20 frames worth of audio from the white clip.
     """
     _check_clips(frames, fade, clipa, clipb)
 
     clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames)
 
     def _fade(n: int):
-        return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[n / (frames - 1)])
+        return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[float(Fraction(n, (frames - 1)))])
 
     if use_frame_eval:
         faded = core.std.FrameEval(clipa_fade_zone, _fade)
     else:
-        faded = core.std.Splice([core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[n / (frames - 1)])[n] for n in range(frames)])
+        faded = core.std.Splice([core.std.Merge(clipa_fade_zone,
+                                                clipb_fade_zone,
+                                                weight=[float(Fraction(n, (frames - 1)))])[n]
+                                 for n in range(frames)])
 
     return _return_combo(clipa_clean, faded, clipb_clean)
 

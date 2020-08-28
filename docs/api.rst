@@ -22,8 +22,8 @@ Non-directional Transitions
 .. code-block:: python
     :emphasize-lines: 3
 
-    marine = core.ffms2.Source('marine.mp4').resize.Bilinear(width=320, height=180, format=vs.YUV444P8)[:96]
-    pekora = core.ffms2.Source('pekora.mp4').resize.Bilinear(width=320, height=180, format=vs.YUV444P8)[:96]
+    marine = core.ffms2.Source('marine.mp4').resize.Bilinear(width=320, height=180)[:96]
+    pekora = core.ffms2.Source('pekora.mp4').resize.Bilinear(width=320, height=180)[:96]
     fade(marine, pekora, 48).set_output()
 
 .. image:: /images/fade.gif
@@ -31,6 +31,16 @@ Non-directional Transitions
     :target: https://twitter.com/kaynimatic
 
 .. autofunction:: vs_transitions.fade_to_black
+
+.. code-block:: python
+    :emphasize-lines: 2
+
+    pekora = core.ffms2.Source('pekora.mp4').resize.Bilinear(width=320, height=180)[:96]
+    fade_to_black(pekora, 48).set_output()
+
+.. image:: /images/fade_to_black.gif
+    :align: center
+    :target: https://twitter.com/kaynimatic
 
 ----
 

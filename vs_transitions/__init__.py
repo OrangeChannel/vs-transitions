@@ -164,14 +164,19 @@ def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, exponent: i
 
 
 def fade_to_black(src_clip: vs.VideoNode, frames: int, /, use_frame_eval: bool = True) -> vs.VideoNode:
-    """Linear Transition.
-    Simple convenience function to fade a clip to black. Frames will be the number of frames consumed from the end of the src_clip during the transition.
-    The first frame of the transition will be 100% of the src_clip, while the last frame of the transition will be a pure black frame.
+    """
+    Simple convenience function to :func:`fade` a clip to black.
+    `frames` will be the number of frames consumed from the end of the `src_clip` during the transition.
+    The first frame of the transition will be 100% of the `src_clip`,
+    while the last frame of the transition will be a pure black frame.
 
-        >>> clip = core.ffms2.Source(r'/path/to/file.mp4')
-        >>> fade_to_black(clip, 100)
-        The last 100 frames of the clip will be fading to black, with the first frame of the transition being purely from the source,
-        and the last frame of the transition being pure black, consuming 100 frames from the end of `clip`.
+    >>> source = core.ffms2.Source(r'/path/to/file.mp4')  # 200 frames long
+    >>> fade_to_black(source, 100)
+
+    The last 100 frames of the clip will be fading to black,
+    with the first frame of the transition being purely from the `source`,
+    and the last frame of the transition being pure black,
+    consuming 100 frames from the end of the `source` clip.
     """
     black_clip = core.std.BlankClip(format=vs.GRAY8, length=frames, color=[0])
     black_clip_resized = black_clip.resize.Point(

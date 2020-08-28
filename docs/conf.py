@@ -10,20 +10,24 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
-import os
 import sys
+from os.path import abspath
 
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, abspath('..'))
+
+meta = {}
+exec(open(abspath('../vs_transitions/_metadata.py')).read(), meta)
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'vs_transitions'
-copyright = '2020, Dave'
-author = 'Dave'
+author = meta['__author__'].split()[0]
+copyright = '2020, ' + author
+
 
 # The full version, including alpha/beta/rc tags
-version = release = '0.0.0'
+version = release = meta['__version__']
 
 
 # -- General configuration ---------------------------------------------------

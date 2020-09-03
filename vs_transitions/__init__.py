@@ -133,11 +133,14 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, /, use_frame_eva
 
 
 def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, exponent: int = 1) -> vs.VideoNode:
-    """
-    Cross-fade clips according to a curve.
-    The curve `exponent` is an int in the range from 1-5
+    """Cross-fade clips according to a curve.
+
+    The curve `exponent` is an integer in the range from 1-5
     where 1 represents a parabolic curve, 2 represents a quartic curve,
     and higher powers more resembling an tight ease-in-out function with constant speed for most of the transition.
+
+    An `exponent` of ``1`` is probably most useful, as higher exponents tend towards a constant speed and therefore are
+    almost indistinguishable from a normal :func:`fade`.
     """
     _check_clips(frames, poly_fade, clipa, clipb)
 

@@ -73,6 +73,7 @@ smartquotes = True
 html_show_sphinx = False
 # add_module_names = False
 pygments_style = 'sphinx'
+typehints_document_rtype = False
 
 
 # -- Extension configuration -------------------------------------------------

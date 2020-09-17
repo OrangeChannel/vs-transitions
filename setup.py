@@ -1,6 +1,5 @@
-from distutils.util import convert_path
-
 import setuptools
+from distutils.util import convert_path
 
 meta = {}
 exec(open(convert_path('vs_transitions/_metadata.py')).read(), meta)

@@ -18,7 +18,11 @@ core = vs.core
 
 
 class Direction(str, enum.Enum):
-    """Direction enumeration"""
+    """Direction enumeration.
+
+    Members can be simply referenced by their names,
+    i.e. ``vs_transitions.LEFT`` instead of ``vs_transitions.Direction.LEFT``.
+    """
     LEFT = 'left'
     RIGHT = 'right'
     UP = 'up'

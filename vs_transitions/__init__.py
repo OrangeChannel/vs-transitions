@@ -10,7 +10,7 @@ import vapoursynth as vs
 
 try:
     from ._metadata import __author__, __date__, __version__
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     __author__ = __date__ = __version__ = 'unknown (portable version)'
 
 sys.path.insert(0, os.path.abspath('.'))

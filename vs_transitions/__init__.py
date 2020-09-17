@@ -55,8 +55,7 @@ def _check_clips(frames: int, caller: Callable, *clips: vs.VideoNode) -> None:
 
 
 def _return_combo(clip1: Optional[vs.VideoNode], clip_middle: vs.VideoNode, clip2: Optional[vs.VideoNode]) -> vs.VideoNode:
-    """
-    Prevents splicing empty clips.
+    """Prevents splicing empty clips.
 
     :param clip1:        optional start clip
     :param clip_middle:  mandatory middle clip
@@ -171,8 +170,8 @@ def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, exponent: i
 
 
 def fade_to_black(src_clip: vs.VideoNode, frames: int, /, use_frame_eval: bool = True) -> vs.VideoNode:
-    """
-    Simple convenience function to :func:`fade` a clip to black.
+    """Simple convenience function to :func:`fade` a clip to black.
+
     `frames` will be the number of frames consumed from the end of the `src_clip` during the transition.
     The first frame of the transition will be 100% of the `src_clip`,
     while the last frame of the transition will be a pure black frame.
@@ -181,9 +180,9 @@ def fade_to_black(src_clip: vs.VideoNode, frames: int, /, use_frame_eval: bool =
     >>> fade_to_black(source, 100)
 
     The last 100 frames of the clip will be fading to black,
-    with the first frame of the transition being purely from the `source`,
+    with the first frame of the transition being purely from the source,
     and the last frame of the transition being pure black,
-    consuming 100 frames from the end of the `source` clip.
+    consuming 100 frames from the end of the `src_clip`.
     """
     black_clip = core.std.BlankClip(format=vs.GRAY8, length=frames, color=[0])
     black_clip_resized = black_clip.resize.Point(

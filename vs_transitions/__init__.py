@@ -39,16 +39,19 @@ HORIZONTAL = Direction.HORIZONTAL
 VERTICAL = Direction.VERTICAL
 
 
-def _check_clips(frames: int, caller: Callable, *clips: vs.VideoNode) -> None:
+def _check_clips(frames: Optional[int], caller: Callable, *clips: vs.VideoNode) -> None:
     """General checker for clip formats, resolutions, length."""
+    if frames is not None and frames <= 0:
+        raise ValueError(f"{caller.__name__}: `frames` cannot be less than 1")
     same_check = set()
     for clip in clips:
         if clip.format is None:
             raise ValueError(f"{caller.__name__}: all clips must be constant-format")
         if 0 in (clip.width, clip.height):
             raise ValueError(f"{caller.__name__}: all clips must be constant-resolution")
-        if clip.num_frames < frames:
-            raise ValueError(f"{caller.__name__}: all clips must have at least {frames} frames")
+        if frames is not None:
+            if clip.num_frames < frames:
+                raise ValueError(f"{caller.__name__}: all clips must have at least {frames} frames")
         same_check.add((clip.format.id, clip.width, clip.height))
     if len(same_check) > 1:
         raise ValueError(f"{caller.__name__}: all clips must be same format and resolution")
@@ -72,8 +75,11 @@ def _return_combo(clip1: Optional[vs.VideoNode], clip_middle: vs.VideoNode, clip
         return clip_middle
 
 
-def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: int) -> Tuple[Optional[vs.VideoNode], Optional[vs.VideoNode], vs.VideoNode, vs.VideoNode]:
+def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: Optional[int]) -> Tuple[Optional[vs.VideoNode], Optional[vs.VideoNode], vs.VideoNode, vs.VideoNode]:
     """Returns clean (non-transition) and transition sections of the given clips based on frames."""
+    if frames is None:
+        frames = min(clip1.num_frames, clip2.num_frames)
+
     if clip1.num_frames == frames:
         clip1_t_zone = clip1
         clip1_clean = None
@@ -91,7 +97,7 @@ def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: int) -> 
     return clip1_clean, clip2_clean, clip1_t_zone, clip2_t_zone
 
 
-def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, /, use_frame_eval: bool = True) -> vs.VideoNode:
+def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None) -> vs.VideoNode:
     """Cross-fade clips.
 
     First frame of the fade will be 100% `clipa`, while last frame will be 100% `clipb`.
@@ -100,7 +106,7 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, /, use_frame_eva
     >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
     >>> white = core.std.BlankClip(format=vs.GRAY8, color=[255], length=100)
 
-    >>> fade(black, white, 100)
+    >>> fade(black, white)
 
     will result in a pure fade from black to white.
     The first frame (``0``) will be pure black, while the last frame (``99``) will be pure white.
@@ -135,7 +141,7 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, /, use_frame_eva
     return _return_combo(clipa_clean, faded, clipb_clean)
 
 
-def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, exponent: int = 1) -> vs.VideoNode:
+def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, exponent: int = 1) -> vs.VideoNode:
     """Cross-fade clips according to a curve.
 
     The curve `exponent` is an integer in the range from 1-5
@@ -169,12 +175,14 @@ def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, exponent: i
     return _return_combo(clipa_clean, faded, clipb_clean)
 
 
-def fade_to_black(src_clip: vs.VideoNode, frames: int, /, use_frame_eval: bool = True) -> vs.VideoNode:
+def fade_to_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.VideoNode:
     """Simple convenience function to :func:`fade` a clip to black.
 
     `frames` will be the number of frames consumed from the end of the `src_clip` during the transition.
     The first frame of the transition will be 100% of the `src_clip`,
     while the last frame of the transition will be a pure black frame.
+
+    If `frames` is not given, will fade to black over the entire duration of the `src_clip`.
 
     >>> source = core.ffms2.Source(r'/path/to/file.mp4')  # 200 frames long
     >>> fade_to_black(source, 100)

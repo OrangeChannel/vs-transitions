@@ -5,6 +5,42 @@ API Reference
 .. automodule:: vs_transitions
 
 
+All transitions, unless explicitly stated,
+start with a pure frame from ``clipa``, or generally the first clip.
+The transition ends with a pure frame from ``clipb``,
+or generally the second clip.
+If specified, the transition will be ``frames`` long.
+If not given, the transition will be the entire length of the shortest clip given.
+The ``frames`` parameter cannot excede the number of frames in either clip.
+
+All transitions, unless explicitly stated,
+*consume* frames from both clips in the same way.
+As the transition progresses, frames from the **end** of the first clip
+and from the **start** of the second clip are consumed simultaneously.
+Frame *0* of the transition, although purely ``clipa``,
+consumes the first frame from ``clipb``.
+
+As an example, two 5-frame clips are faded,
+with the frame numbers for ``clipa`` on the left,
+and for ``clipb`` on the right.
+
+.. image:: /images/example_consume_frames.gif
+    :align: center
+
+The next example starts with a 15-frame long black clip,
+and a 10-frame long white clip. The transition lasts 4 frames.
+(Frames 12, 13, 14, 15 from the first clip are consumed concurrently with
+frames 1, 2, 3, 4 from the second clip).
+
+.. image:: /images/example_consume_frames2.gif
+    :align: center
+
+For a 24-fps clip, specifying ``frames=24`` will make the transition last a full second.
+However, since the first and last frame of the transition
+are purely from ``clipa`` / ``clipb`` respectively,
+``frames=26`` will give a *visually* one second long transition.
+
+
 Direction Enumeration
 =====================
 

@@ -79,6 +79,18 @@ Non-directional Transitions
     :align: center
     :target: https://twitter.com/kaynimatic
 
+.. autofunction:: vs_transitions.fade_from_black
+
+.. code-block:: python
+    :emphasize-lines: 2
+
+    pekora = core.ffms2.Source('pekora.mp4').resize.Bilinear(width=320, height=180)[:84]
+    fade_from_black(pekora, 42).set_output()
+
+.. image:: /images/fade_from_black.gif
+    :align: center
+    :target: https://twitter.com/kaynimatic
+
 ----
 
 **Non-linear Transitions**
@@ -108,3 +120,22 @@ Non-directional Transitions
 
 .. image:: /images/poly_fade_diff.gif
     :align: center
+
+
+Directional Transitions
+=======================
+
+**Simple Transitions**
+
+.. autofunction:: vs_transitions.push
+
+.. code-block:: python
+    :emphasize-lines: 3
+
+    marine = core.ffms2.Source('marine.mp4').resize.Bilinear(width=320, height=180)[:84]
+    pekora = core.ffms2.Source('pekora.mp4').resize.Bilinear(width=320, height=180)[:84]
+    push(pekora, marine).set_output()
+
+.. image:: /images/push.gif
+    :align: center
+    :target: https://twitter.com/kaynimatic

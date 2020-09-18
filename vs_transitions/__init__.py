@@ -39,9 +39,9 @@ HORIZONTAL = Direction.HORIZONTAL
 VERTICAL = Direction.VERTICAL
 
 
-def _check_clips(frames: Optional[int], caller: Callable, *clips: vs.VideoNode) -> None:
+def _check_clips(frames: int, caller: Callable, *clips: vs.VideoNode) -> None:
     """General checker for clip formats, resolutions, length."""
-    if frames is not None and frames <= 0:
+    if frames <= 0:
         raise ValueError(f"{caller.__name__}: `frames` cannot be less than 1")
     same_check = set()
     for clip in clips:
@@ -49,9 +49,8 @@ def _check_clips(frames: Optional[int], caller: Callable, *clips: vs.VideoNode) 
             raise ValueError(f"{caller.__name__}: all clips must be constant-format")
         if 0 in (clip.width, clip.height):
             raise ValueError(f"{caller.__name__}: all clips must be constant-resolution")
-        if frames is not None:
-            if clip.num_frames < frames:
-                raise ValueError(f"{caller.__name__}: all clips must have at least {frames} frames")
+        if clip.num_frames < frames:
+            raise ValueError(f"{caller.__name__}: all clips must have at least {frames} frames")
         same_check.add((clip.format.id, clip.width, clip.height))
     if len(same_check) > 1:
         raise ValueError(f"{caller.__name__}: all clips must be same format and resolution")
@@ -75,11 +74,8 @@ def _return_combo(clip1: Optional[vs.VideoNode], clip_middle: vs.VideoNode, clip
         return clip_middle
 
 
-def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: Optional[int]) -> Tuple[Optional[vs.VideoNode], Optional[vs.VideoNode], vs.VideoNode, vs.VideoNode]:
+def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: int) -> Tuple[Optional[vs.VideoNode], Optional[vs.VideoNode], vs.VideoNode, vs.VideoNode]:
     """Returns clean (non-transition) and transition sections of the given clips based on frames."""
-    if frames is None:
-        frames = min(clip1.num_frames, clip2.num_frames)
-
     if clip1.num_frames == frames:
         clip1_t_zone = clip1
         clip1_clean = None
@@ -100,7 +96,6 @@ def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: Optional
 def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None) -> vs.VideoNode:
     """Cross-fade clips.
 
-    First frame of the fade will be 100% `clipa`, while last frame will be 100% `clipb`.
     As an example, say we have a 100 frame long black clip and 100 frame long white clip:
 
     >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
@@ -123,20 +118,21 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None)
     The correct way to line up audio with this would be to crossfade 20 frames from the black clip into the white clip,
     i.e. using the last 20 frames worth of audio from the black clip and the first 20 frames worth of audio from the white clip.
     """
-    _check_clips(frames, fade, clipa, clipb)
+    if frames is None:
+        frames = min(clipa.num_frames, clipb.num_frames)
 
+    _check_clips(frames, fade, clipa, clipb)
     clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames)
 
     def _fade(n: int):
-        return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[float(Fraction(n, (frames - 1)))])
+        if n == 0:
+            return clipa_fade_zone
+        elif n == frames:
+            return clipb_fade_zone
+        else:
+            return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[float(Fraction(n, (frames - 1)))])
 
-    if use_frame_eval:
-        faded = core.std.FrameEval(clipa_fade_zone, _fade)
-    else:
-        faded = core.std.Splice([core.std.Merge(clipa_fade_zone,
-                                                clipb_fade_zone,
-                                                weight=[float(Fraction(n, (frames - 1)))])[n]
-                                 for n in range(frames)])
+    faded = core.std.FrameEval(clipa_fade_zone, _fade)
 
     return _return_combo(clipa_clean, faded, clipb_clean)
 
@@ -151,11 +147,13 @@ def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = 
     An `exponent` of ``1`` is probably most useful, as higher exponents tend towards a constant speed and therefore are
     almost indistinguishable from a normal :func:`fade`.
     """
-    _check_clips(frames, poly_fade, clipa, clipb)
-
     if not (1 <= exponent <= 5):
         raise ValueError("poly_fade: exponent must be an int between 1 and 5 (inclusive)")
 
+    if frames is None:
+        frames = min(clipa.num_frames, clipb.num_frames)
+
+    _check_clips(frames, fade, clipa, clipb)
     clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames)
 
     def get_pos(x: float) -> float:
@@ -167,8 +165,13 @@ def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = 
         return round(((_curve(1)-_curve(0)) ** -1) * (_curve(x) - _curve(0)), 9)
 
     def _fade(n: int):
-        percentage = n / (frames - 1)
-        return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[get_pos(percentage)])
+        if n == 0:
+            return clipa_fade_zone
+        elif n == frames:
+            return clipb_fade_zone
+        else:
+            percentage = n / (frames - 1)
+            return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[get_pos(percentage)])
 
     faded = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _fade)
 
@@ -204,90 +207,96 @@ def fade_to_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.Vi
             subsampling_h=src_clip.format.subsampling_h
         ).id
     )
-    return fade(src_clip, black_clip_resized, frames, use_frame_eval)
+    return fade(src_clip, black_clip_resized, frames)
 
 
-def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT, use_frame_eval: bool = True) -> vs.VideoNode:
+def fade_from_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.VideoNode:
+    """Simple convenience function to :func:`fade` a clip into view from black.
+
+    `frames` will be the number of frames consumed from the start of the `src_clip` during the transition.
+    The first frame of the transition will be a pure black frame,
+    while the last frame of the transition will be 100% of the `src_clip`.
+
+    If `frames` is not given, will fade in over the entire duration of the `src_clip`.
+
+    >>> source = core.ffms2.Source(r'/path/to/file.mp4')  # 200 frames long
+    >>> fade_from_black(source, 20)
+
+    The first 20 frames of the clip will be faded in from a pure black clip.
     """
-    Clipb pushes clipa off of the screen (coming from `direction`) during the transition.
-    The first frame of the transition will be 100% of clipa, while the last frame of transition will be 100% of clipb.
-    Consumes frames from the end of clipa and the start of clipb during the transition.
+    black_clip = core.std.BlankClip(format=vs.GRAY8, length=frames, color=[0])
+    black_clip_resized = black_clip.resize.Point(
+        width=src_clip.width,
+        height=src_clip.height,
+        format=black_clip.format.replace(
+            color_family=src_clip.format.color_family,
+            sample_type=src_clip.format.sample_type,
+            bits_per_sample=src_clip.format.bits_per_sample,
+            subsampling_w=src_clip.format.subsampling_w,
+            subsampling_h=src_clip.format.subsampling_h
+        ).id
+    )
+    return fade(black_clip_resized, src_clip, frames)
 
-        >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
-        >>> white = core.std.BlankClip(format=vs.GRAY8, color=[255], length=100)
 
-        >>> push(black, white, 100)
-        The first frame (0) of the clip will be pure black, while the last frame (99) will be pure white.
-        The white clip "pushes" the black clip to the left.
+def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, direction: Direction = Direction.LEFT) -> vs.VideoNode:
+    """Second clip `pushes` the first clip off of the screen, moving towards `direction`.
 
-        >>> push(white, black, 20, Direction.UP)
-        The first 80 frames (0-79) will be of the white clip.
-        Frame 80, the start of the transition will be pure white.
-        From frame 80-99 the black clip will push the white clip "up" off of the screen, consuming 20 frames from both clips.
-        Frame 99, the end of the transition will be pure black.
-        Frame 100-179 will be the remainder of the black clip.
+    >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
+    >>> white = core.std.BlankClip(format=vs.GRAY8, color=[255], length=100)
+    >>> push(black, white, 100)
 
-    The parameter `use_frame_eval` exists to allow you to change a FrameEval call
-    into a more complex (and probably slower) Trim/Splice series of calls.
-    For normal use, leave this alone.
-    But, as according to stux!, using FrameEval will cause 'Python to lock the GIL'.
-    This has complications when running the vsscript multi-threaded:
-    'If two threads want to each execute any FrameEval at the same time, one has to wait until the other is done.'
+    The first frame (0) of the clip will be pure black, while the last frame (99) will be pure white.
+    The white clip "pushes" the black clip to the left.
+
+    >>> push(white, black, 20, UP)
+
+    The first 80 frames (0-79) will be of the white clip.
+    Frame 80, the start of the transition will be pure white.
+    From frame 80-99 the black clip will push the white clip "up" off of the screen, consuming 20 frames from both clips.
+    Frame 99, the end of the transition will be pure black.
+    Frame 100-179 will be the remainder of the black clip.
     """
-    _check_clips(frames, push, clipa, clipb)
+    if frames is None:
+        frames = min(clipa.num_frames, clipb.num_frames)
 
+    _check_clips(frames, fade, clipa, clipb)
     clipa_clean, clipb_clean, clipa_push_zone, clipb_push_zone = _transition_clips(clipa, clipb, frames)
 
-    if direction == Direction.LEFT:
-        stack = core.std.StackHorizontal([clipa_push_zone, clipb_push_zone])
-        w = stack.width // 2
+    if direction in [Direction.LEFT, Direction.RIGHT]:
+        w = clipa.width
 
-        def _push(n: int):
-            return stack.resize.Spline36(width=w, src_left=w * n / (frames - 1), src_width=w)
+        if direction == Direction.LEFT:
+            stack = core.std.StackHorizontal([clipa_push_zone, clipb_push_zone])
 
-        if use_frame_eval:
-            pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _push)
-        else:
-            pushed = core.std.Splice([stack.resize.Spline36(width=w, src_left=w * n / (frames-1), src_width=w)[n] for n in range(frames)])
+            def _push(n: int):
+                return stack.resize.Spline36(width=w, src_left=w * n / (frames - 1), src_width=w)
 
-    elif direction == Direction.RIGHT:
-        stack = core.std.StackHorizontal([clipb_push_zone, clipa_push_zone])
-        w = stack.width // 2
+        elif direction == Direction.RIGHT:
+            stack = core.std.StackHorizontal([clipb_push_zone, clipa_push_zone])
 
-        def _push(n: int):
-            return stack.resize.Spline36(width=w, src_left=w - (w * n / (frames - 1)), src_width=w)
+            def _push(n: int):
+                return stack.resize.Spline36(width=w, src_left=w * (1 - n / (frames - 1)), src_width=w)
 
-        if use_frame_eval:
-            pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _push)
-        else:
-            pushed = core.std.Splice([stack.resize.Spline36(width=w, src_left=w-(w * n / (frames - 1)), src_width=w)[n] for n in range(frames)])
+    elif direction in [Direction.UP, Direction.DOWN]:
+        h = clipa.height
 
-    elif direction == Direction.UP:
-        stack = core.std.StackVertical([clipa_push_zone, clipb_push_zone])
-        h = stack.height // 2
+        if direction == Direction.UP:
+            stack = core.std.StackVertical([clipa_push_zone, clipb_push_zone])
 
-        def _push(n: int):
-            return stack.resize.Spline36(height=h, src_top=h * n / (frames-1), src_height=h)
+            def _push(n: int):
+                return stack.resize.Spline36(height=h, src_top=h * n / (frames - 1), src_height=h)
 
-        if use_frame_eval:
-            pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _push)
-        else:
-            pushed = core.std.Splice([stack.resize.Spline36(height=h, src_top=h * n / (frames-1), src_height=h)[n] for n in range(frames)])
+        elif direction == Direction.DOWN:
+            stack = core.std.StackVertical([clipb_push_zone, clipa_push_zone])
 
-    elif direction == Direction.DOWN:
-        stack = core.std.StackVertical([clipb_push_zone, clipa_push_zone])
-        h = stack.height // 2
-
-        def _push(n: int):
-            return stack.resize.Spline36(height=h, src_top=h-(h * n / (frames-1)), src_height=h)
-
-        if use_frame_eval:
-            pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _push)
-        else:
-            pushed = core.std.Splice([stack.resize.Spline36(height=h, src_top=h-(h * n / (frames-1)), src_height=h)[n] for n in range(frames)])
+            def _push(n: int):
+                return stack.resize.Spline36(height=h, src_top=h * (1 - n / (frames - 1)), src_height=h)
 
     else:
         raise ValueError("push: give a proper direction")
+
+    pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _push)
 
     return _return_combo(clipa_clean, pushed, clipb_clean)
 
@@ -314,7 +323,7 @@ def wipe(clipa: vs.VideoNode,
         Over the duration of the fade,
         more of the white clip towards the left will fade over the black clip, until the transition is over.
 
-        >>> wipe(white, black, 20, Direction.UP)
+        >>> wipe(white, black, 20, UP)
         The first 80 frames (0-79) will be pure white.
         Transition begins on frame 80, which is still 100% pure white.
         Gradually, over 20 frames (80-99), the black clip will become more visible starting from the bottom working up.

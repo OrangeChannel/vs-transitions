@@ -30,9 +30,11 @@ and for ``clipb`` on the right.
 The next example starts with a 15-frame long black clip,
 and a 10-frame long white clip. The transition lasts 4 frames.
 (Frames 12, 13, 14, 15 from the first clip are consumed concurrently with
-frames 1, 2, 3, 4 from the second clip).
+frames 1, 2, 3, 4 from the second clip). *Notice how only frames 13 and 14
+seem to be involved in the transition,
+as the first and last frames are pure frames from their respective clip.*
 
-.. image:: /images/example_consume_frames2.gif
+.. image:: /images/example_consume_frames_long.gif
     :align: center
 
 For a 24-fps clip, specifying ``frames=24`` will make the transition last a full second.
@@ -57,39 +59,29 @@ Non-directional Transitions
 .. autofunction:: vs_transitions.fade
 
 .. code-block:: python
-    :emphasize-lines: 3
 
-    marine = core.ffms2.Source('marine.mp4').resize.Bilinear(width=320, height=180)[:96]
-    pekora = core.ffms2.Source('pekora.mp4').resize.Bilinear(width=320, height=180)[:96]
-    fade(marine, pekora, 48).set_output()
+    fade(hero[:96], dweebs[:96], frames=48).set_output()
 
 .. image:: /images/fade.gif
     :align: center
-    :target: https://twitter.com/kaynimatic
 
 .. autofunction:: vs_transitions.fade_to_black
 
 .. code-block:: python
-    :emphasize-lines: 2
 
-    pekora = core.ffms2.Source('pekora.mp4').resize.Bilinear(width=320, height=180)[:96]
-    fade_to_black(pekora, 48).set_output()
+    fade_to_black(dweebs[:96], frames=36).set_output()
 
 .. image:: /images/fade_to_black.gif
     :align: center
-    :target: https://twitter.com/kaynimatic
 
 .. autofunction:: vs_transitions.fade_from_black
 
 .. code-block:: python
-    :emphasize-lines: 2
 
-    pekora = core.ffms2.Source('pekora.mp4').resize.Bilinear(width=320, height=180)[:84]
-    fade_from_black(pekora, 42).set_output()
+    fade_from_black(dweebs[:96], frames=36).set_output()
 
 .. image:: /images/fade_from_black.gif
     :align: center
-    :target: https://twitter.com/kaynimatic
 
 ----
 

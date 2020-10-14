@@ -23,7 +23,6 @@ exec(open(abspath('../vs_transitions/_metadata.py')).read(), meta)
 
 project = 'vs_transitions'
 author = meta['__author__'].split()[0]
-copyright = '2020, ' + author
 
 
 # The full version, including alpha/beta/rc tags

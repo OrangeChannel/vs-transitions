@@ -1,19 +1,19 @@
-"""Powerpoint transitions implemented in VapourSynth."""
+"""Powerpoint-like transitions implemented in VapourSynth."""
 import enum
 import math
 import os
 import sys
-from typing import Callable, Optional, Tuple
 from fractions import Fraction
+from typing import Callable, Optional, Tuple
 
 import vapoursynth as vs
 
 try:
     from ._metadata import __author__, __date__, __version__
 except (ImportError, ModuleNotFoundError):
-    __author__ = __date__ = __version__ = 'unknown (portable version)'
+    __author__ = __date__ = __version__ = "unknown (portable version)"
 
-sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath("."))
 core = vs.core
 
 
@@ -23,12 +23,13 @@ class Direction(str, enum.Enum):
     Members can be simply referenced by their names,
     i.e. ``vs_transitions.LEFT`` instead of ``vs_transitions.Direction.LEFT``.
     """
-    LEFT = 'left'
-    RIGHT = 'right'
-    UP = 'up'
-    DOWN = 'down'
-    HORIZONTAL = 'horizontal'
-    VERTICAL = 'vertical'
+
+    LEFT = "left"
+    RIGHT = "right"
+    UP = "up"
+    DOWN = "down"
+    HORIZONTAL = "horizontal"
+    VERTICAL = "vertical"
 
 
 LEFT = Direction.LEFT
@@ -56,7 +57,11 @@ def _check_clips(frames: int, caller: Callable, *clips: vs.VideoNode) -> None:
         raise ValueError(f"{caller.__name__}: all clips must be same format and resolution")
 
 
-def _return_combo(clip1: Optional[vs.VideoNode], clip_middle: vs.VideoNode, clip2: Optional[vs.VideoNode]) -> vs.VideoNode:
+def _return_combo(
+    clip1: Optional[vs.VideoNode],
+    clip_middle: vs.VideoNode,
+    clip2: Optional[vs.VideoNode],
+) -> vs.VideoNode:
     """Prevents splicing empty clips.
 
     :param clip1:        optional start clip
@@ -74,7 +79,9 @@ def _return_combo(clip1: Optional[vs.VideoNode], clip_middle: vs.VideoNode, clip
         return clip_middle
 
 
-def _transition_clips(clip1: vs.VideoNode, clip2: vs.VideoNode, frames: int) -> Tuple[Optional[vs.VideoNode], Optional[vs.VideoNode], vs.VideoNode, vs.VideoNode]:
+def _transition_clips(
+    clip1: vs.VideoNode, clip2: vs.VideoNode, frames: int
+) -> Tuple[Optional[vs.VideoNode], Optional[vs.VideoNode], vs.VideoNode, vs.VideoNode]:
     """Returns clean (non-transition) and transition sections of the given clips based on frames."""
     if clip1.num_frames == frames:
         clip1_t_zone = clip1
@@ -120,7 +127,6 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None)
     """
     if frames is None:
         frames = min(clipa.num_frames, clipb.num_frames)
-
     _check_clips(frames, fade, clipa, clipb)
     clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames)
 
@@ -130,14 +136,23 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None)
         elif n == frames:
             return clipb_fade_zone
         else:
-            return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[float(Fraction(n, (frames - 1)))])
+            return core.std.Merge(
+                clipa_fade_zone,
+                clipb_fade_zone,
+                weight=[float(Fraction(n, (frames - 1)))],
+            )
 
     faded = core.std.FrameEval(clipa_fade_zone, _fade)
 
     return _return_combo(clipa_clean, faded, clipb_clean)
 
 
-def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, exponent: int = 1) -> vs.VideoNode:
+def poly_fade(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    frames: Optional[int] = None,
+    exponent: int = 1,
+) -> vs.VideoNode:
     """Cross-fade clips according to a curve.
 
     The curve `exponent` is an integer in the range from 1-5
@@ -149,20 +164,18 @@ def poly_fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = 
     """
     if not (1 <= exponent <= 5):
         raise ValueError("poly_fade: exponent must be an int between 1 and 5 (inclusive)")
-
     if frames is None:
         frames = min(clipa.num_frames, clipb.num_frames)
-
     _check_clips(frames, fade, clipa, clipb)
     clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames)
 
     def get_pos(x: float) -> float:
         """Returns position as a float 0-1, based on a input percentage float 0-1"""
 
-        def _curve(x: float) -> float:
-            return -(((2 * x - 1) ** (2 * exponent + 1)) / (4 * exponent + 2)) + x - 0.5
+        def _curve(y: float) -> float:
+            return -(((2 * y - 1) ** (2 * exponent + 1)) / (4 * exponent + 2)) + y - 0.5
 
-        return round(((_curve(1)-_curve(0)) ** -1) * (_curve(x) - _curve(0)), 9)
+        return round(((_curve(1) - _curve(0)) ** -1) * (_curve(x) - _curve(0)), 9)
 
     def _fade(n: int):
         if n == 0:
@@ -204,8 +217,8 @@ def fade_to_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.Vi
             sample_type=src_clip.format.sample_type,
             bits_per_sample=src_clip.format.bits_per_sample,
             subsampling_w=src_clip.format.subsampling_w,
-            subsampling_h=src_clip.format.subsampling_h
-        ).id
+            subsampling_h=src_clip.format.subsampling_h,
+        ).id,
     )
     return fade(src_clip, black_clip_resized, frames)
 
@@ -233,13 +246,18 @@ def fade_from_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.
             sample_type=src_clip.format.sample_type,
             bits_per_sample=src_clip.format.bits_per_sample,
             subsampling_w=src_clip.format.subsampling_w,
-            subsampling_h=src_clip.format.subsampling_h
-        ).id
+            subsampling_h=src_clip.format.subsampling_h,
+        ).id,
     )
     return fade(black_clip_resized, src_clip, frames)
 
 
-def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, direction: Direction = Direction.LEFT) -> vs.VideoNode:
+def push(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    frames: Optional[int] = None,
+    direction: Direction = Direction.LEFT,
+) -> vs.VideoNode:
     """Second clip `pushes` the first clip off of the screen, moving towards `direction`.
 
     >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
@@ -259,10 +277,10 @@ def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None,
     """
     if frames is None:
         frames = min(clipa.num_frames, clipb.num_frames)
-
     _check_clips(frames, fade, clipa, clipb)
     clipa_clean, clipb_clean, clipa_push_zone, clipb_push_zone = _transition_clips(clipa, clipb, frames)
 
+    _push: Callable = ...
     if direction in [Direction.LEFT, Direction.RIGHT]:
         w = clipa.width
 
@@ -301,12 +319,14 @@ def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None,
     return _return_combo(clipa_clean, pushed, clipb_clean)
 
 
-def wipe(clipa: vs.VideoNode,
-         clipb: vs.VideoNode,
-         frames: int,
-         direction: Direction = Direction.LEFT,
-         use_frame_eval: bool = True,
-         gradient_image: str = r'./sRGB_gradient_1px_16-bit_dither.png') -> vs.VideoNode:
+# fmt: off
+def wipe(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    frames: int,
+    direction: Direction = Direction.LEFT,
+    gradient_image: str = r"./sRGB_gradient_1px_16-bit_dither.png",
+) -> vs.VideoNode:
     """
     A moving fade, kind of like a `fade` with a moving mask.
     The direction will be the direction the fade progresses towards.
@@ -339,12 +359,18 @@ def wipe(clipa: vs.VideoNode,
     clipa_clean, clipb_clean, clipa_wipe_zone, clipb_wipe_zone = _transition_clips(clipa, clipb, frames)
 
     mask = core.imwri.Read(gradient_image)
-    mask_horiz = mask.resize.Spline64(clipa.width, clipa.height, dither_type='error_diffusion',
-                                format=mask.format.replace(bits_per_sample=clipa.format.bits_per_sample,
-                                                           color_family=vs.GRAY).id)
-    mask_vert = core.std.Transpose(mask).resize.Spline64(clipa.width, clipa.height, dither_type='error_diffusion',
-                                format=mask.format.replace(bits_per_sample=clipa.format.bits_per_sample,
-                                                           color_family=vs.GRAY).id)
+    mask_horiz = mask.resize.Spline64(
+        clipa.width,
+        clipa.height,
+        dither_type="error_diffusion",
+        format=mask.format.replace(bits_per_sample=clipa.format.bits_per_sample, color_family=vs.GRAY).id,
+    )
+    mask_vert = core.std.Transpose(mask).resize.Spline64(
+        clipa.width,
+        clipa.height,
+        dither_type="error_diffusion",
+        format=mask.format.replace(bits_per_sample=clipa.format.bits_per_sample, color_family=vs.GRAY).id,
+    )
     black_clip = core.std.BlankClip(mask_horiz, length=1, color=[0])
     white_clip = core.std.BlankClip(mask_horiz, length=1, color=[(1 << mask_horiz.format.bits_per_sample) - 1])
 
@@ -352,57 +378,60 @@ def wipe(clipa: vs.VideoNode,
         stack = core.std.StackHorizontal([black_clip, mask_horiz, white_clip])
 
         def _wipe(n: int):
-            stack_ = stack.resize.Spline36(width=mask_horiz.width, src_left=2 * mask_horiz.width * n / (frames - 1), src_width=mask_horiz.width)
+            stack_ = stack.resize.Spline36(
+                width=mask_horiz.width,
+                src_left=2 * mask_horiz.width * n / (frames - 1),
+                src_width=mask_horiz.width,
+            )
             return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
-
-        if use_frame_eval:
-            wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _wipe)
-        else:
-            wiped = core.std.Splice([core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack.resize.Spline36(width=mask_horiz.width, src_left=2 * mask_horiz.width * n / (frames - 1), src_width=mask_horiz.width))[n] for n in range(frames)])
 
     elif direction == Direction.RIGHT:
         stack = core.std.StackHorizontal([white_clip, core.std.FlipHorizontal(mask_horiz), black_clip])
 
         def _wipe(n: int):
-            stack_ = stack.resize.Spline36(width=mask_horiz.width, src_left=2 * mask_horiz.width - (2 * mask_horiz.width * n / (frames - 1)), src_width=mask_horiz.width)
+            stack_ = stack.resize.Spline36(
+                width=mask_horiz.width,
+                src_left=2 * mask_horiz.width - (2 * mask_horiz.width * n / (frames - 1)),
+                src_width=mask_horiz.width,
+            )
             return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
-
-        if use_frame_eval:
-            wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _wipe)
-        else:
-            wiped = core.std.Splice([core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack.resize.Spline36(width=mask_horiz.width, src_left=2 * mask_horiz.width - (2 * mask_horiz.width * n / (frames - 1)), src_width=mask_horiz.width))[n] for n in range(frames)])
 
     elif direction == Direction.UP:
         stack = core.std.StackVertical([black_clip, mask_vert, white_clip])
 
         def _wipe(n: int):
-            stack_ = stack.resize.Spline36(height=mask_vert.height, src_top=2 * mask_vert.height * n / (frames - 1), src_height=mask_vert.height)
+            stack_ = stack.resize.Spline36(
+                height=mask_vert.height,
+                src_top=2 * mask_vert.height * n / (frames - 1),
+                src_height=mask_vert.height,
+            )
             return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
-
-        if use_frame_eval:
-            wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _wipe)
-        else:
-            wiped = core.std.Splice([core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack.resize.Spline36(height=mask_vert.height, src_top=2 * mask_vert.height * n / (frames - 1), src_height=mask_vert.height))[n] for n in range(frames)])
 
     elif direction == Direction.DOWN:
         stack = core.std.StackVertical([white_clip, core.std.FlipVertical(mask_vert), black_clip])
 
         def _wipe(n: int):
-            stack_ = stack.resize.Spline36(height=mask_vert.height, src_top=2 * mask_vert.height - (2 * mask_vert.height * n / (frames - 1)), src_height=mask_vert.height)
+            stack_ = stack.resize.Spline36(
+                height=mask_vert.height,
+                src_top=2 * mask_vert.height - (2 * mask_vert.height * n / (frames - 1)),
+                src_height=mask_vert.height,
+            )
             return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
-
-        if use_frame_eval:
-            wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _wipe)
-        else:
-            wiped = core.std.Splice([core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack.resize.Spline36(height=mask_vert.height, src_top=2 * mask_vert.height - (2 * mask_vert.height * n / (frames - 1)), src_height=mask_vert.height))[n] for n in range(frames)])
 
     else:
         raise ValueError("wipe: give a proper direction")
 
+    wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _wipe)
+
     return _return_combo(clipa_clean, wiped, clipb_clean)
 
 
-def squeeze_slide_in(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT) -> vs.VideoNode:
+def squeeze_slide_in(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    frames: int,
+    direction: Direction = Direction.LEFT,
+) -> vs.VideoNode:
     """clipa gets squeezed to nothing while clipb enters the frame moving in `direction` at its initial size"""
     _check_clips(frames, squeeze_slide_in, clipa, clipb)
 
@@ -420,7 +449,7 @@ def squeeze_slide_in(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, dire
             else:
                 return clipb_slide_zone
 
-        squeezed =  core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
+        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
 
     elif direction == Direction.RIGHT:
 
@@ -470,7 +499,12 @@ def squeeze_slide_in(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, dire
     return _return_combo(clipa_clean, squeezed, clipb_clean)
 
 
-def expand_slide_out(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT) -> vs.VideoNode:
+def expand_slide_out(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    frames: int,
+    direction: Direction = Direction.LEFT,
+) -> vs.VideoNode:
     """clipa slides out of frame while clipb starts from 0-width and expands in moving in `direction` filling the space"""
 
     _check_clips(frames, expand_slide_out, clipa, clipb)
@@ -539,11 +573,14 @@ def expand_slide_out(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, dire
     return _return_combo(clipa_clean, squeezed, clipb_clean)
 
 
-def squeeze_expand(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT):
+def squeeze_expand(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    frames: int,
+    direction: Direction = Direction.LEFT,
+):
     """clipa gets squeezed to nothing while clipb expands from nothing, clipb expands towards `direction`"""
-
     _check_clips(frames, squeeze_expand, clipa, clipb)
-
     clipa_clean, clipb_clean, clipa_squeeze_zone, clipb_squeeze_zone = _transition_clips(clipa, clipb, frames)
 
     if direction in [Direction.LEFT, Direction.RIGHT]:
@@ -592,7 +629,13 @@ def squeeze_expand(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direct
     return _return_combo(clipa_clean, squeezed, clipb_clean)
 
 
-def cube_rotate(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction: Direction = Direction.LEFT, exaggeration: int = 0) -> vs.VideoNode:
+def cube_rotate(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    frames: int,
+    direction: Direction = Direction.LEFT,
+    exaggeration: int = 0,
+) -> vs.VideoNode:
     """
     Mimics a cube face rotation by adjusting the speed at which the squeeze boundary moves.
     Cube face containing `clipa` rotates away from the viewer in `direction`.
@@ -612,20 +655,21 @@ def cube_rotate(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: int, direction
 
     def rotation(percentage: float) -> float:
         """Return a radian rotation based on `percentage` ranging from -pi/4 at 0% to -3pi/4 at 100%"""
-        return (-math.pi/2) * percentage - math.pi/4
+        return (-math.pi / 2) * percentage - math.pi / 4
 
     def position(percentage: float, bias: int) -> float:
         """
         Return position of a rotated edge as a percentage
         0% at 0%, 23% at 25%, 50% at 50%, 77% at 75%, 100% at 100%
         """
+
         def _projection(x: float):
             """mathmatically correct projection"""
-            return (-math.cos(rotation(x)) + (math.sqrt(2)/2)) / math.sqrt(2)
+            return (-math.cos(rotation(x)) + (math.sqrt(2) / 2)) / math.sqrt(2)
 
         def _fitted(x: float):
             """fitted cosine wave to exaggerate the effects"""
-            return -.5*math.cos(2*rotation(x) + math.pi/2)+.5
+            return -0.5 * math.cos(2 * rotation(x) + math.pi / 2) + 0.5
 
         if bias == 0:
             return round(_projection(percentage), 9)

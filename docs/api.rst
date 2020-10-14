@@ -118,12 +118,8 @@ Directional Transitions
 .. autofunction:: vs_transitions.push
 
 .. code-block:: python
-    :emphasize-lines: 3
 
-    marine = core.ffms2.Source('marine.mp4').resize.Bilinear(width=320, height=180)[:84]
-    pekora = core.ffms2.Source('pekora.mp4').resize.Bilinear(width=320, height=180)[:84]
-    push(pekora, marine).set_output()
+    push(hero[:84], dweebs[:84]).set_output()
 
 .. image:: /images/push.gif
     :align: center
-    :target: https://twitter.com/kaynimatic

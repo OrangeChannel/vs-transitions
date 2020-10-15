@@ -40,8 +40,12 @@ HORIZONTAL = Direction.HORIZONTAL
 VERTICAL = Direction.VERTICAL
 
 
-def _check_clips(frames: int, caller: Callable, *clips: vs.VideoNode) -> None:
-    """General checker for clip formats, resolutions, length."""
+def _check_clips(frames: int, caller: Callable, *clips: vs.VideoNode, **kwargs) -> None:
+    """General checker for clip formats, resolutions, length, and other keywords.
+
+    Possible kwargs:
+        'subsampling': checks that all clips have 444 subsampling for resize purposes
+    """
     if frames <= 0:
         raise ValueError(f"{caller.__name__}: `frames` cannot be less than 1")
     same_check = set()
@@ -53,6 +57,14 @@ def _check_clips(frames: int, caller: Callable, *clips: vs.VideoNode) -> None:
         if clip.num_frames < frames:
             raise ValueError(f"{caller.__name__}: all clips must have at least {frames} frames")
         same_check.add((clip.format.id, clip.width, clip.height))
+
+        if kwargs:
+            if "subsampling" in kwargs:
+                if clip.format.subsampling_w != 0 or clip.format.subsampling_h != 0:
+                    raise ValueError(
+                        f"{caller.__name__}: all clips must have 444 chroma subsampling for a non-mod2 resize"
+                    )
+
     if len(same_check) > 1:
         raise ValueError(f"{caller.__name__}: all clips must be same format and resolution")
 

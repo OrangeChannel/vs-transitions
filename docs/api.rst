@@ -128,7 +128,7 @@ Directional Transitions
 
 .. code-block:: python
 
-    wipe(hero[:80], dweebs[:80], frames=30, direction=RIGHT).set_output()
+    wipe(hero[:84], dweebs[:84], frames=56).set_output()
 
 .. image:: /images/wipe.gif
     :align: center

@@ -132,3 +132,12 @@ Directional Transitions
 
 .. image:: /images/wipe.gif
     :align: center
+
+.. autofunction:: vs_transitions.squeeze_expand
+
+.. code-block:: python
+
+    squeeze_expand(hero[:84], dweebs[:84], frames=56).set_output()
+
+.. image:: /images/squeeze_expand.gif
+    :align: center

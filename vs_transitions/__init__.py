@@ -545,22 +545,32 @@ def expand_slide_out(
 def squeeze_expand(
     clipa: vs.VideoNode,
     clipb: vs.VideoNode,
-    frames: int,
+    frames: Optional[int] = None,
     direction: Direction = Direction.LEFT,
 ):
-    """clipa gets squeezed to nothing while clipb expands from nothing, clipb expands towards `direction`"""
-    _check_clips(frames, squeeze_expand, clipa, clipb)
+    """Second clip expands into view compressing/squeezing the first clip to nothing.
+
+    `clipb` expands in the given `direction`.
+    The boundary between clips starts from the **opposite** direction given
+    and moves **toward** the given direction.
+
+    Due to resizing, both clips **must have 4:4:4 chroma subsampling**.
+    """
+    if frames is None:
+        frames = min(clipa.num_frames, clipb.num_frames)
+    _check_clips(frames, squeeze_expand, clipa, clipb, subsampling=True)
     clipa_clean, clipb_clean, clipa_squeeze_zone, clipb_squeeze_zone = _transition_clips(clipa, clipb, frames)
 
+    _squeeze: Callable[[int], vs.VideoNode] = ...
     if direction in [Direction.LEFT, Direction.RIGHT]:
 
-        def _squeeze(n: int):
+        def _squeeze(n: int) -> vs.VideoNode:
             clipb_width = math.floor(clipa.width * n / (frames - 1))
             clipa_width = clipa.width - clipb_width
 
-            if clipa_width == clipa.width:
+            if n == 0 or clipb_width < 1:
                 return clipa_squeeze_zone
-            elif clipb_width == clipa.width:
+            elif n == frames - 1:
                 return clipb_squeeze_zone
             else:
                 clipa_squeezed = clipa_squeeze_zone.resize.Spline36(width=clipa_width)
@@ -570,17 +580,15 @@ def squeeze_expand(
                 else:
                     return core.std.StackHorizontal([clipb_squeezed, clipa_squeezed])
 
-        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
-
     elif direction in [Direction.UP, Direction.DOWN]:
 
-        def _squeeze(n: int):
+        def _squeeze(n: int) -> vs.VideoNode:
             clipb_height = math.floor(clipa.height * n / (frames - 1))
             clipa_height = clipa.height - clipb_height
 
-            if clipa_height == clipa.height:
+            if n == 0 or clipb_height < 1:
                 return clipa_squeeze_zone
-            elif clipb_height == clipa.height:
+            elif n == frames - 1:
                 return clipb_squeeze_zone
             else:
                 clipa_squeezed = clipa_squeeze_zone.resize.Spline36(height=clipa_height)
@@ -590,10 +598,10 @@ def squeeze_expand(
                 else:
                     return core.std.StackVertical([clipb_squeezed, clipa_squeezed])
 
-        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
-
     else:
         raise ValueError("squeeze_expand: give a proper direction")
+
+    squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
 
     return _return_combo(clipa_clean, squeezed, clipb_clean)
 

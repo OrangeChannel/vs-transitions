@@ -129,7 +129,7 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None)
     _check_clips(frames, fade, clipa, clipb)
     clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames)
 
-    def _fade(n: int):
+    def _fade(n: int) -> vs.VideoNode:
         if n == 0:
             return clipa_fade_zone
         elif n == frames:
@@ -176,7 +176,7 @@ def poly_fade(
 
         return round(((_curve(1) - _curve(0)) ** -1) * (_curve(x) - _curve(0)), 9)
 
-    def _fade(n: int):
+    def _fade(n: int) -> vs.VideoNode:
         if n == 0:
             return clipa_fade_zone
         elif n == frames:
@@ -258,20 +258,20 @@ def push(
     _check_clips(frames, fade, clipa, clipb)
     clipa_clean, clipb_clean, clipa_push_zone, clipb_push_zone = _transition_clips(clipa, clipb, frames)
 
-    _push: Callable = ...
+    _push: Callable[[int], vs.VideoNode] = ...
     if direction in [Direction.LEFT, Direction.RIGHT]:
         w = clipa.width
 
         if direction == Direction.LEFT:
             stack = core.std.StackHorizontal([clipa_push_zone, clipb_push_zone])
 
-            def _push(n: int):
+            def _push(n: int) -> vs.VideoNode:
                 return stack.resize.Spline36(width=w, src_left=w * n / (frames - 1), src_width=w)
 
         elif direction == Direction.RIGHT:
             stack = core.std.StackHorizontal([clipb_push_zone, clipa_push_zone])
 
-            def _push(n: int):
+            def _push(n: int) -> vs.VideoNode:
                 return stack.resize.Spline36(width=w, src_left=w * (1 - n / (frames - 1)), src_width=w)
 
     elif direction in [Direction.UP, Direction.DOWN]:
@@ -280,13 +280,13 @@ def push(
         if direction == Direction.UP:
             stack = core.std.StackVertical([clipa_push_zone, clipb_push_zone])
 
-            def _push(n: int):
+            def _push(n: int) -> vs.VideoNode:
                 return stack.resize.Spline36(height=h, src_top=h * n / (frames - 1), src_height=h)
 
         elif direction == Direction.DOWN:
             stack = core.std.StackVertical([clipb_push_zone, clipa_push_zone])
 
-            def _push(n: int):
+            def _push(n: int) -> vs.VideoNode:
                 return stack.resize.Spline36(height=h, src_top=h * (1 - n / (frames - 1)), src_height=h)
 
     else:
@@ -335,13 +335,13 @@ def wipe(
     black_clip = core.std.BlankClip(mask_horiz, length=1, color=[0])
     white_clip = core.std.BlankClip(mask_horiz, length=1, color=[(1 << mask_horiz.format.bits_per_sample) - 1])
 
-    _wipe: Callable = ...
+    _wipe: Callable[[int], vs.VideoNode] = ...
     if direction in [Direction.LEFT, Direction.RIGHT]:
         stack = core.std.StackHorizontal([black_clip, mask_horiz, white_clip])
 
         if direction == Direction.LEFT:
 
-            def _wipe(n: int):
+            def _wipe(n: int) -> vs.VideoNode:
                 stack_ = stack.resize.Spline36(
                     width=mask_horiz.width,
                     src_left=2 * mask_horiz.width * n / (frames - 1),
@@ -352,7 +352,7 @@ def wipe(
         elif direction == Direction.RIGHT:
             stack = core.std.FlipHorizontal(stack)
 
-            def _wipe(n: int):
+            def _wipe(n: int) -> vs.VideoNode:
                 stack_ = stack.resize.Spline36(
                     width=mask_horiz.width,
                     src_left=(2 * mask_horiz.width) * (1 - n / (frames - 1)),
@@ -365,7 +365,7 @@ def wipe(
 
         if direction == Direction.UP:
 
-            def _wipe(n: int):
+            def _wipe(n: int) -> vs.VideoNode:
                 stack_ = stack.resize.Spline36(
                     height=mask_vert.height,
                     src_top=2 * mask_vert.height * n / (frames - 1),
@@ -376,7 +376,7 @@ def wipe(
         elif direction == Direction.DOWN:
             stack = core.std.FlipVertical(stack)
 
-            def _wipe(n: int):
+            def _wipe(n: int) -> vs.VideoNode:
                 stack_ = stack.resize.Spline36(
                     height=mask_vert.height,
                     src_top=(2 * mask_vert.height) * (1 - n / (frames - 1)),

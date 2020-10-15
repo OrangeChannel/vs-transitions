@@ -285,7 +285,6 @@ def push(
     return _return_combo(clipa_clean, pushed, clipb_clean)
 
 
-# fmt: off
 def wipe(
     clipa: vs.VideoNode,
     clipb: vs.VideoNode,
@@ -293,35 +292,19 @@ def wipe(
     direction: Direction = Direction.LEFT,
     gradient_image: str = r"./sRGB_gradient_1px_16-bit_dither.png",
 ) -> vs.VideoNode:
-    """
-    A moving fade, kind of like a `fade` with a moving mask.
-    The direction will be the direction the fade progresses towards.
-    Uses a custom gradient as a mask (sRGB_gradient_1px_16-bit_dither.png)
+    """A moving directional fade.
 
-        >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
-        >>> white = core.std.BlankClip(format=vs.GRAY8, color=[255], length=100)
+    Similar to a :func:`fade`, but with a moving mask.
+    The `direction` will be the direction the fade progresses towards.
+    (i.e. the second clip begins fading in from the **opposite** given direction,
+    and the first clip begins fading out starting from the **opposite** given direction,
+    progressing towards `direction`)
 
-        >>> wipe(black, white, 100)
-        The first frame will be 100% black, the last frame will be 100% white.
-        During the transition, the white clip gradually enters the screen from the left.
-        However, unlike push, the clips DO NOT MOVE,
-        the fade simply starts with the very right side of the white clip becoming visible.
-        Over the duration of the fade,
-        more of the white clip towards the left will fade over the black clip, until the transition is over.
-
-        >>> wipe(white, black, 20, UP)
-        The first 80 frames (0-79) will be pure white.
-        Transition begins on frame 80, which is still 100% pure white.
-        Gradually, over 20 frames (80-99), the black clip will become more visible starting from the bottom working up.
-        The last frame of the transition (99) will be pure black.
-        The transition will consume 20 frames from the end of the white clip, and the start of the black clip,
-        resulting in a 80 + 20 + 80 = 180 frame long clip.
+    Uses a custom grayscale gradient as a mask (sRGB_gradient_1px_16-bit_dither.png).
     """
     if not os.path.isfile(gradient_image):
         raise FileNotFoundError(f"wipe: the gradient image {gradient_image} was not found")
-
     _check_clips(frames, wipe, clipa, clipb)
-
     clipa_clean, clipb_clean, clipa_wipe_zone, clipb_wipe_zone = _transition_clips(clipa, clipb, frames)
 
     mask = core.imwri.Read(gradient_image)
@@ -340,58 +323,64 @@ def wipe(
     black_clip = core.std.BlankClip(mask_horiz, length=1, color=[0])
     white_clip = core.std.BlankClip(mask_horiz, length=1, color=[(1 << mask_horiz.format.bits_per_sample) - 1])
 
-    if direction == Direction.LEFT:
+    _wipe: Callable = ...
+    if direction in [Direction.LEFT, Direction.RIGHT]:
         stack = core.std.StackHorizontal([black_clip, mask_horiz, white_clip])
 
-        def _wipe(n: int):
-            stack_ = stack.resize.Spline36(
-                width=mask_horiz.width,
-                src_left=2 * mask_horiz.width * n / (frames - 1),
-                src_width=mask_horiz.width,
-            )
-            return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
+        if direction == Direction.LEFT:
 
-    elif direction == Direction.RIGHT:
-        stack = core.std.StackHorizontal([white_clip, core.std.FlipHorizontal(mask_horiz), black_clip])
+            def _wipe(n: int):
+                stack_ = stack.resize.Spline36(
+                    width=mask_horiz.width,
+                    src_left=2 * mask_horiz.width * n / (frames - 1),
+                    src_width=mask_horiz.width,
+                )
+                return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
 
-        def _wipe(n: int):
-            stack_ = stack.resize.Spline36(
-                width=mask_horiz.width,
-                src_left=2 * mask_horiz.width - (2 * mask_horiz.width * n / (frames - 1)),
-                src_width=mask_horiz.width,
-            )
-            return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
+        elif direction == Direction.RIGHT:
+            stack = core.std.FlipHorizontal(stack)
 
-    elif direction == Direction.UP:
+            def _wipe(n: int):
+                stack_ = stack.resize.Spline36(
+                    width=mask_horiz.width,
+                    src_left=(2 * mask_horiz.width) * (1 - n / (frames - 1)),
+                    src_width=mask_horiz.width,
+                )
+                return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
+
+    elif direction in [Direction.UP, Direction.DOWN]:
         stack = core.std.StackVertical([black_clip, mask_vert, white_clip])
 
-        def _wipe(n: int):
-            stack_ = stack.resize.Spline36(
-                height=mask_vert.height,
-                src_top=2 * mask_vert.height * n / (frames - 1),
-                src_height=mask_vert.height,
-            )
-            return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
+        if direction == Direction.UP:
 
-    elif direction == Direction.DOWN:
-        stack = core.std.StackVertical([white_clip, core.std.FlipVertical(mask_vert), black_clip])
+            def _wipe(n: int):
+                stack_ = stack.resize.Spline36(
+                    height=mask_vert.height,
+                    src_top=2 * mask_vert.height * n / (frames - 1),
+                    src_height=mask_vert.height,
+                )
+                return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
 
-        def _wipe(n: int):
-            stack_ = stack.resize.Spline36(
-                height=mask_vert.height,
-                src_top=2 * mask_vert.height - (2 * mask_vert.height * n / (frames - 1)),
-                src_height=mask_vert.height,
-            )
-            return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
+        elif direction == Direction.DOWN:
+            stack = core.std.FlipVertical(stack)
 
-    else:
-        raise ValueError("wipe: give a proper direction")
+            def _wipe(n: int):
+                stack_ = stack.resize.Spline36(
+                    height=mask_vert.height,
+                    src_top=(2 * mask_vert.height) * (1 - n / (frames - 1)),
+                    src_height=mask_vert.height,
+                )
+                return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
+
+        else:
+            raise ValueError("wipe: give a proper direction")
 
     wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _wipe)
 
     return _return_combo(clipa_clean, wiped, clipb_clean)
 
 
+# fmt: off
 def squeeze_slide_in(
     clipa: vs.VideoNode,
     clipb: vs.VideoNode,

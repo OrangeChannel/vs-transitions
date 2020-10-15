@@ -123,3 +123,12 @@ Directional Transitions
 
 .. image:: /images/push.gif
     :align: center
+
+.. autofunction:: vs_transitions.wipe
+
+.. code-block:: python
+
+    wipe(hero[:80], dweebs[:80], frames=30, direction=RIGHT).set_output()
+
+.. image:: /images/wipe.gif
+    :align: center

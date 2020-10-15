@@ -107,23 +107,10 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None)
 
     >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
     >>> white = core.std.BlankClip(format=vs.GRAY8, color=[255], length=100)
-
     >>> fade(black, white)
 
     will result in a pure fade from black to white.
     The first frame (``0``) will be pure black, while the last frame (``99``) will be pure white.
-
-    >>> fade(black, white, 20)
-
-    will result in a 20-frame long fade from the end of the black clip through the beginning of the white clip.
-    The first 80 frames (``0``-``79``) will be pure black.
-    The first frame of the fade (``80``) will also be pure black.
-    At this point, we've consumed 1 frame from the beginning of the white clip.
-    The last frame of the fade (``99``) will be pure white.
-    At this point, we've consumed 20 frames from the white clip.
-    The last 80 frames (``100``-``179``) will be pure white.
-    The correct way to line up audio with this would be to crossfade 20 frames from the black clip into the white clip,
-    i.e. using the last 20 frames worth of audio from the black clip and the first 20 frames worth of audio from the white clip.
     """
     if frames is None:
         frames = min(clipa.num_frames, clipb.num_frames)
@@ -195,18 +182,10 @@ def fade_to_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.Vi
     """Simple convenience function to :func:`fade` a clip to black.
 
     `frames` will be the number of frames consumed from the end of the `src_clip` during the transition.
-    The first frame of the transition will be 100% of the `src_clip`,
+    The first frame of the transition will be the first frame of the `src_clip`,
     while the last frame of the transition will be a pure black frame.
 
     If `frames` is not given, will fade to black over the entire duration of the `src_clip`.
-
-    >>> source = core.ffms2.Source(r'/path/to/file.mp4')  # 200 frames long
-    >>> fade_to_black(source, 100)
-
-    The last 100 frames of the clip will be fading to black,
-    with the first frame of the transition being purely from the source,
-    and the last frame of the transition being pure black,
-    consuming 100 frames from the end of the `src_clip`.
     """
     black_clip = core.std.BlankClip(format=vs.GRAY8, length=frames, color=[0])
     black_clip_resized = black_clip.resize.Point(
@@ -228,14 +207,9 @@ def fade_from_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.
 
     `frames` will be the number of frames consumed from the start of the `src_clip` during the transition.
     The first frame of the transition will be a pure black frame,
-    while the last frame of the transition will be 100% of the `src_clip`.
+    while the last frame of the transition will be the last frame of the `src_clip`.
 
     If `frames` is not given, will fade in over the entire duration of the `src_clip`.
-
-    >>> source = core.ffms2.Source(r'/path/to/file.mp4')  # 200 frames long
-    >>> fade_from_black(source, 20)
-
-    The first 20 frames of the clip will be faded in from a pure black clip.
     """
     black_clip = core.std.BlankClip(format=vs.GRAY8, length=frames, color=[0])
     black_clip_resized = black_clip.resize.Point(
@@ -262,18 +236,10 @@ def push(
 
     >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
     >>> white = core.std.BlankClip(format=vs.GRAY8, color=[255], length=100)
-    >>> push(black, white, 100)
+    >>> push(black, white, direction=UP)
 
     The first frame (0) of the clip will be pure black, while the last frame (99) will be pure white.
-    The white clip "pushes" the black clip to the left.
-
-    >>> push(white, black, 20, UP)
-
-    The first 80 frames (0-79) will be of the white clip.
-    Frame 80, the start of the transition will be pure white.
-    From frame 80-99 the black clip will push the white clip "up" off of the screen, consuming 20 frames from both clips.
-    Frame 99, the end of the transition will be pure black.
-    Frame 100-179 will be the remainder of the black clip.
+    The white clip "pushes" the black clip upwards off the screen.
     """
     if frames is None:
         frames = min(clipa.num_frames, clipb.num_frames)

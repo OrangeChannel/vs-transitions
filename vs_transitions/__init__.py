@@ -300,7 +300,7 @@ def push(
 def wipe(
     clipa: vs.VideoNode,
     clipb: vs.VideoNode,
-    frames: int,
+    frames: Optional[int] = None,
     direction: Direction = Direction.LEFT,
     gradient_image: str = r"./sRGB_gradient_1px_16-bit_dither.png",
 ) -> vs.VideoNode:
@@ -316,6 +316,8 @@ def wipe(
     """
     if not os.path.isfile(gradient_image):
         raise FileNotFoundError(f"wipe: the gradient image {gradient_image} was not found")
+    if frames is None:
+        frames = min(clipa.num_frames, clipb.num_frames)
     _check_clips(frames, wipe, clipa, clipb)
     clipa_clean, clipb_clean, clipa_wipe_zone, clipb_wipe_zone = _transition_clips(clipa, clipb, frames)
 

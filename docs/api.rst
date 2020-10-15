@@ -119,7 +119,7 @@ Directional Transitions
 
 .. code-block:: python
 
-    push(hero[:84], dweebs[:84]).set_output()
+    push(hero[:84], dweebs[:84], frames=36).set_output()
 
 .. image:: /images/push.gif
     :align: center

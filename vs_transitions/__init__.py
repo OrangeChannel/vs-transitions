@@ -14,19 +14,19 @@ __all__ = [
 
 import enum
 import math
-import os
-import sys
 from fractions import Fraction
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple, TYPE_CHECKING
+from warnings import simplefilter, warn
 
 import vapoursynth as vs
 
 try:
-    from ._metadata import __author__, __date__, __version__
+    from ._metadata import __author__, __date__, __version__  # type: ignore
 except (ImportError, ModuleNotFoundError):
-    __author__ = __date__ = __version__ = "unknown (portable version)"
+    __author__ = __date__ = __version__ = "unknown (portable version)"  # type: ignore
 
-sys.path.insert(0, os.path.abspath("."))
+simplefilter("always")
+
 core = vs.core
 
 
@@ -251,6 +251,9 @@ def fade_from_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.
     If `frames` is not given, will fade in over the entire duration of the `src_clip`.
     """
     black_clip = core.std.BlankClip(format=vs.GRAY8, length=frames, color=[0])
+    if TYPE_CHECKING:
+        assert black_clip.format is not None
+        assert src_clip.format is not None
     black_clip_resized = black_clip.resize.Point(
         width=src_clip.width,
         height=src_clip.height,

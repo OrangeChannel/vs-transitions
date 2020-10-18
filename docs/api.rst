@@ -119,29 +119,48 @@ Directional Transitions
 
 **Simple Transitions**
 
-.. autofunction:: vs_transitions.push
-
-.. code-block:: python
-
-    push(hero[:84], dweebs[:84], frames=48).set_output()
-
-.. image:: /images/push.gif
-    :align: center
-
 .. autofunction:: vs_transitions.wipe
 
 .. code-block:: python
 
-    wipe(hero[:84], dweebs[:84], frames=56).set_output()
+    wipe(hero[:84], dweebs[:84], frames=60).set_output()
 
-.. image:: /images/wipe.gif
+.. warning:: This is broken
+
+.. autofunction:: vs_transitions.linear_boundary
+
+.. autofunction:: vs_transitions.push
+
+.. code-block:: python
+
+    push(hero[:84], dweebs[:84], frames=60).set_output()
+
+.. image:: /images/push.gif
+    :align: center
+
+.. autofunction:: vs_transitions.slide_expand
+
+.. code-block:: python
+
+    slide_expand(hero[:96], dweebs[:96], frames=84).set_output()
+
+.. image:: /images/slide_expand.gif
+    :align: center
+
+.. autofunction:: vs_transitions.squeeze_slide
+
+.. code-block:: python
+
+    squeeze_slide(hero[:96], dweebs[:96], frames=84).set_output()
+
+.. image:: /images/squeeze_slide.gif
     :align: center
 
 .. autofunction:: vs_transitions.squeeze_expand
 
 .. code-block:: python
 
-    squeeze_expand(hero[:84], dweebs[:84], frames=56).set_output()
+    squeeze_expand(hero[:96], dweebs[:96], frames=84).set_output()
 
 .. image:: /images/squeeze_expand.gif
     :align: center

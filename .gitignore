@@ -4,3 +4,4 @@
 !.readthedocs.yml
 vs_transitions/__pycache__/*
 vs_transitions/.vspreview/*
+.vspreview/*

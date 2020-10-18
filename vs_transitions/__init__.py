@@ -332,7 +332,6 @@ def wipe(
     clipb: vs.VideoNode,
     frames: Optional[int] = None,
     direction: Direction = Direction.LEFT,
-    gradient_image: str = r"./sRGB_gradient_1px_16-bit_dither.png",
 ) -> vs.VideoNode:
     """A moving directional fade.
 
@@ -342,42 +341,80 @@ def wipe(
     and the first clip begins fading out starting from the **opposite** given direction,
     progressing towards `direction`)
 
-    Uses a custom grayscale gradient as a mask (sRGB_gradient_1px_16-bit_dither.png).
+    Uses a pure white to black gradient for the fade.
+    If possible, uses `numpy <https://pypi.org/project/numpy/>`_ to generate the mask.
+    If the numpy module is not found, falls back to a slower
+    and possibly less accurate approach using lists
+    and the ``ctypes`` module for writing to a VapourSynth frame.
     """
-    if not os.path.isfile(gradient_image):
-        raise FileNotFoundError(f"wipe: the gradient image {gradient_image} was not found")
-    if frames is None:
-        frames = min(clipa.num_frames, clipb.num_frames)
-    _check_clips(frames, wipe, clipa, clipb)
-    clipa_clean, clipb_clean, clipa_wipe_zone, clipb_wipe_zone = _transition_clips(clipa, clipb, frames)
+    frames_ = frames or min(clipa.num_frames, clipb.num_frames)
+    if TYPE_CHECKING:
+        assert isinstance(frames_, int)
+    _check_clips(frames_, wipe, clipa, clipb)
+    clipa_clean, clipb_clean, clipa_wipe_zone, clipb_wipe_zone = _transition_clips(clipa, clipb, frames_)
 
-    mask = core.imwri.Read(gradient_image)
+    blank_clip = core.std.BlankClip(width=1 << 16, height=1, format=vs.GRAYS, color=[0.0], length=1)
+    write_frame = blank_clip.get_frame(0).copy()
+    try:
+        import numpy as np
+
+        def frame_writer(n, f):
+            if n is not None:
+                pass
+            fout = f.copy()
+            ptr = np.asarray(fout.get_write_array(0))
+            ptr[0] = np.linspace(0, 1, 1 << 16)
+            return fout
+
+        mask = blank_clip.std.ModifyFrame([blank_clip], frame_writer)
+
+    except (ImportError, ModuleNotFoundError):
+        warn("wipe: numpy module not found, falling back to slower less accurate method", Warning)
+        import ctypes
+
+        ptr_type = ctypes.c_float * (1 << 16)
+        vs_ptr = ctypes.cast(write_frame.get_write_ptr(0), ctypes.POINTER(ptr_type))
+        float_lin_array = [i / ((1 << 16) - 1) for i in list(range(1 << 16))]
+        float_Arr_ptr = ctypes.pointer(ptr_type(*float_lin_array))
+        vs_ptr[0] = float_Arr_ptr[0]
+        mask = blank_clip.std.ModifyFrame([blank_clip], lambda n, f: write_frame)
+
+    mask = mask.grain.Add()
+    if TYPE_CHECKING:
+        assert mask.format is not None
+        assert clipa.format is not None
     mask_horiz = mask.resize.Spline64(
         clipa.width,
         clipa.height,
         dither_type="error_diffusion",
-        format=mask.format.replace(bits_per_sample=clipa.format.bits_per_sample, color_family=vs.GRAY).id,
+        format=mask.format.replace(
+            bits_per_sample=clipa.format.bits_per_sample, color_family=vs.GRAY, sample_type=vs.INTEGER
+        ).id,
+        matrix_in_s="rgb",
     )
     mask_vert = core.std.Transpose(mask).resize.Spline64(
         clipa.width,
         clipa.height,
         dither_type="error_diffusion",
-        format=mask.format.replace(bits_per_sample=clipa.format.bits_per_sample, color_family=vs.GRAY).id,
+        format=mask.format.replace(
+            bits_per_sample=clipa.format.bits_per_sample, color_family=vs.GRAY, sample_type=vs.INTEGER
+        ).id,
+        matrix_in_s="rgb",
     )
     black_clip = core.std.BlankClip(mask_horiz, length=1, color=[0])
-    white_clip = core.std.BlankClip(mask_horiz, length=1, color=[(1 << mask_horiz.format.bits_per_sample) - 1])
+    white_clip = core.std.BlankClip(mask_horiz, length=1, color=[(1 << clipa.format.bits_per_sample) - 1])
 
-    _wipe: Callable[[int], vs.VideoNode] = ...
     if direction in [Direction.LEFT, Direction.RIGHT]:
         stack = core.std.StackHorizontal([black_clip, mask_horiz, white_clip])
+        w = mask_horiz.width
 
         if direction == Direction.LEFT:
 
             def _wipe(n: int) -> vs.VideoNode:
                 stack_ = stack.resize.Spline36(
-                    width=mask_horiz.width,
-                    src_left=2 * mask_horiz.width * n / (frames - 1),
-                    src_width=mask_horiz.width,
+                    width=w,
+                    src_left=2 * w * n / (frames_ - 1),
+                    src_width=w,
                 )
                 return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
 
@@ -386,22 +423,23 @@ def wipe(
 
             def _wipe(n: int) -> vs.VideoNode:
                 stack_ = stack.resize.Spline36(
-                    width=mask_horiz.width,
-                    src_left=(2 * mask_horiz.width) * (1 - n / (frames - 1)),
-                    src_width=mask_horiz.width,
+                    width=w,
+                    src_left=(2 * w) * (1 - n / (frames_ - 1)),
+                    src_width=w,
                 )
                 return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
 
     elif direction in [Direction.UP, Direction.DOWN]:
         stack = core.std.StackVertical([black_clip, mask_vert, white_clip])
+        h = mask_vert.height
 
         if direction == Direction.UP:
 
             def _wipe(n: int) -> vs.VideoNode:
                 stack_ = stack.resize.Spline36(
-                    height=mask_vert.height,
-                    src_top=2 * mask_vert.height * n / (frames - 1),
-                    src_height=mask_vert.height,
+                    height=h,
+                    src_top=2 * h * n / (frames_ - 1),
+                    src_height=h,
                 )
                 return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
 
@@ -410,16 +448,16 @@ def wipe(
 
             def _wipe(n: int) -> vs.VideoNode:
                 stack_ = stack.resize.Spline36(
-                    height=mask_vert.height,
-                    src_top=(2 * mask_vert.height) * (1 - n / (frames - 1)),
-                    src_height=mask_vert.height,
+                    height=h,
+                    src_top=(2 * h) * (1 - n / (frames_ - 1)),
+                    src_height=h,
                 )
                 return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
 
         else:
             raise ValueError("wipe: give a proper direction")
 
-    wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _wipe)
+    wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _wipe)
 
     return _return_combo(clipa_clean, wiped, clipb_clean)
 

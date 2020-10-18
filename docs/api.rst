@@ -43,10 +43,14 @@ are purely from ``clipa`` / ``clipb`` respectively,
 ``frames=26`` will give a *visually* one second long transition.
 
 
-Direction Enumeration
+Enums and Constants
 =====================
 
 .. autoclass:: vs_transitions.Direction
+    :members:
+    :undoc-members:
+
+.. autoclass:: vs_transitions.MiscConstants
     :members:
     :undoc-members:
 

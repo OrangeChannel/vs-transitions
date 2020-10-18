@@ -145,32 +145,23 @@ def _transition_clips(
 
 
 def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None) -> vs.VideoNode:
-    """Cross-fade clips.
-
-    As an example, say we have a 100 frame long black clip and 100 frame long white clip:
-
-    >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
-    >>> white = core.std.BlankClip(format=vs.GRAY8, color=[255], length=100)
-    >>> fade(black, white)
-
-    will result in a pure fade from black to white.
-    The first frame (``0``) will be pure black, while the last frame (``99``) will be pure white.
-    """
-    if frames is None:
-        frames = min(clipa.num_frames, clipb.num_frames)
-    _check_clips(frames, fade, clipa, clipb)
-    clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames)
+    """Cross-fade clips."""
+    frames_ = frames or min(clipa.num_frames, clipb.num_frames)
+    if TYPE_CHECKING:
+        assert isinstance(frames_, int)
+    _check_clips(frames_, fade, clipa, clipb)
+    clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames_)
 
     def _fade(n: int) -> vs.VideoNode:
         if n == 0:
             return clipa_fade_zone
-        elif n == frames:
+        elif n == frames_ - 1:
             return clipb_fade_zone
         else:
             return core.std.Merge(
                 clipa_fade_zone,
                 clipb_fade_zone,
-                weight=[float(Fraction(n, (frames - 1)))],
+                weight=[float(Fraction(n, (frames_ - 1)))],
             )
 
     faded = core.std.FrameEval(clipa_fade_zone, _fade)

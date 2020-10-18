@@ -268,65 +268,6 @@ def fade_from_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.
     return fade(black_clip_resized, src_clip, frames)
 
 
-def push(
-    clipa: vs.VideoNode,
-    clipb: vs.VideoNode,
-    frames: Optional[int] = None,
-    direction: Direction = Direction.LEFT,
-) -> vs.VideoNode:
-    """Second clip `pushes` the first clip off of the screen, moving towards `direction`.
-
-    >>> black = core.std.BlankClip(format=vs.GRAY8, color=[0], length=100)
-    >>> white = core.std.BlankClip(format=vs.GRAY8, color=[255], length=100)
-    >>> push(black, white, direction=UP)
-
-    The first frame (0) of the clip will be pure black, while the last frame (99) will be pure white.
-    The white clip "pushes" the black clip upwards off the screen.
-    """
-    if frames is None:
-        frames = min(clipa.num_frames, clipb.num_frames)
-    _check_clips(frames, fade, clipa, clipb)
-    clipa_clean, clipb_clean, clipa_push_zone, clipb_push_zone = _transition_clips(clipa, clipb, frames)
-
-    _push: Callable[[int], vs.VideoNode] = ...
-    if direction in [Direction.LEFT, Direction.RIGHT]:
-        w = clipa.width
-
-        if direction == Direction.LEFT:
-            stack = core.std.StackHorizontal([clipa_push_zone, clipb_push_zone])
-
-            def _push(n: int) -> vs.VideoNode:
-                return stack.resize.Spline36(width=w, src_left=w * n / (frames - 1), src_width=w)
-
-        elif direction == Direction.RIGHT:
-            stack = core.std.StackHorizontal([clipb_push_zone, clipa_push_zone])
-
-            def _push(n: int) -> vs.VideoNode:
-                return stack.resize.Spline36(width=w, src_left=w * (1 - n / (frames - 1)), src_width=w)
-
-    elif direction in [Direction.UP, Direction.DOWN]:
-        h = clipa.height
-
-        if direction == Direction.UP:
-            stack = core.std.StackVertical([clipa_push_zone, clipb_push_zone])
-
-            def _push(n: int) -> vs.VideoNode:
-                return stack.resize.Spline36(height=h, src_top=h * n / (frames - 1), src_height=h)
-
-        elif direction == Direction.DOWN:
-            stack = core.std.StackVertical([clipb_push_zone, clipa_push_zone])
-
-            def _push(n: int) -> vs.VideoNode:
-                return stack.resize.Spline36(height=h, src_top=h * (1 - n / (frames - 1)), src_height=h)
-
-    else:
-        raise ValueError("push: give a proper direction")
-
-    pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _push)
-
-    return _return_combo(clipa_clean, pushed, clipb_clean)
-
-
 def wipe(
     clipa: vs.VideoNode,
     clipb: vs.VideoNode,
@@ -462,218 +403,6 @@ def wipe(
     return _return_combo(clipa_clean, wiped, clipb_clean)
 
 
-# fmt: off
-def squeeze_slide_in(
-    clipa: vs.VideoNode,
-    clipb: vs.VideoNode,
-    frames: int,
-    direction: Direction = Direction.LEFT,
-) -> vs.VideoNode:
-    """clipa gets squeezed to nothing while clipb enters the frame moving in `direction` at its initial size"""
-    _check_clips(frames, squeeze_slide_in, clipa, clipb)
-
-    clipa_clean, clipb_clean, clipa_squeeze_zone, clipb_slide_zone = _transition_clips(clipa, clipb, frames)
-
-    if direction == Direction.LEFT:
-
-        def _squeeze(n: int):
-            scale = 1 - (n / (frames - 1))  # scale factor for clipa
-            w = math.floor(scale * clipa.width)
-            if w:
-                resized_a = clipa_squeeze_zone.resize.Spline36(width=w)
-                stack = core.std.StackHorizontal([resized_a, clipb_slide_zone])
-                return stack.std.Crop(right=w)
-            else:
-                return clipb_slide_zone
-
-        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
-
-    elif direction == Direction.RIGHT:
-
-        def _squeeze(n: int):
-            scale = 1 - (n / (frames - 1))
-            w = math.floor(scale * clipa.width)
-            if w:
-                resized_a = clipa_squeeze_zone.resize.Spline36(width=w)
-                stack = core.std.StackHorizontal([clipb_slide_zone, resized_a])
-                return stack.std.Crop(left=w)
-            else:
-                return clipb_slide_zone
-
-        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
-
-    elif direction == Direction.UP:
-
-        def _squeeze(n: int):
-            scale = 1 - (n / (frames - 1))
-            h = math.floor(scale * clipa.height)
-            if h:
-                resized_a = clipa_squeeze_zone.resize.Spline36(height=h)
-                stack = core.std.StackVertical([resized_a, clipb_slide_zone])
-                return stack.std.Crop(bottom=h)
-            else:
-                return clipb_slide_zone
-
-        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
-
-    elif direction == Direction.DOWN:
-
-        def _squeeze(n: int):
-            scale = 1 - (n / (frames - 1))
-            h = math.floor(scale * clipa.height)
-            if h:
-                resized_a = clipa_squeeze_zone.resize.Spline36(height=h)
-                stack = core.std.StackVertical([clipb_slide_zone, resized_a])
-                return stack.std.Crop(top=h)
-            else:
-                return clipb_slide_zone
-
-        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
-
-    else:
-        raise ValueError("squeeze_slide_in: give a proper direction")
-
-    return _return_combo(clipa_clean, squeezed, clipb_clean)
-
-
-def expand_slide_out(
-    clipa: vs.VideoNode,
-    clipb: vs.VideoNode,
-    frames: int,
-    direction: Direction = Direction.LEFT,
-) -> vs.VideoNode:
-    """clipa slides out of frame while clipb starts from 0-width and expands in moving in `direction` filling the space"""
-
-    _check_clips(frames, expand_slide_out, clipa, clipb)
-
-    clipa_clean, clipb_clean, clipa_slide_zone, clipb_squeeze_zone = _transition_clips(clipa, clipb, frames)
-
-    if direction == Direction.LEFT:
-
-        def _squeeze(n: int):
-            scale = n / (frames - 1)
-            w = math.floor(scale * clipa.width)
-            if w:
-                resized_b = clipb_squeeze_zone.resize.Spline36(width=w)
-                stack = core.std.StackHorizontal([clipa_slide_zone, resized_b])
-                return stack.std.Crop(left=w)
-            else:
-                return clipa_slide_zone
-
-        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
-
-    elif direction == Direction.RIGHT:
-
-        def _squeeze(n: int):
-            scale = n / (frames - 1)
-            w = math.floor(scale * clipa.width)
-            if w:
-                resized_b = clipb_squeeze_zone.resize.Spline36(width=w)
-                stack = core.std.StackHorizontal([resized_b, clipa_slide_zone])
-                return stack.std.Crop(right=w)
-            else:
-                return clipa_slide_zone
-
-        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
-
-    elif direction == Direction.UP:
-
-        def _squeeze(n: int):
-            scale = n / (frames - 1)
-            h = math.floor(scale * clipa.height)
-            if h:
-                resized_b = clipb_squeeze_zone.resize.Spline36(height=h)
-                stack = core.std.StackVertical([clipa_slide_zone, resized_b])
-                return stack.std.Crop(top=h)
-            else:
-                return clipa_slide_zone
-
-        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
-
-    elif direction == Direction.DOWN:
-
-        def _squeeze(n: int):
-            scale = n / (frames - 1)
-            h = math.floor(scale * clipa.height)
-            if h:
-                resized_b = clipb_squeeze_zone.resize.Spline36(height=h)
-                stack = core.std.StackVertical([resized_b, clipa_slide_zone])
-                return stack.std.Crop(bottom=h)
-            else:
-                return clipa_slide_zone
-
-        squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
-
-    else:
-        raise ValueError("expand_slide_out: give a proper direction")
-
-    return _return_combo(clipa_clean, squeezed, clipb_clean)
-
-
-def squeeze_expand(
-    clipa: vs.VideoNode,
-    clipb: vs.VideoNode,
-    frames: Optional[int] = None,
-    direction: Direction = Direction.LEFT,
-):
-    """Second clip expands into view compressing/squeezing the first clip to nothing.
-
-    `clipb` expands in the given `direction`.
-    The boundary between clips starts from the **opposite** direction given
-    and moves **toward** the given direction.
-
-    Due to resizing, both clips **must have 4:4:4 chroma subsampling**.
-    """
-    if frames is None:
-        frames = min(clipa.num_frames, clipb.num_frames)
-    _check_clips(frames, squeeze_expand, clipa, clipb, subsampling=True)
-    clipa_clean, clipb_clean, clipa_squeeze_zone, clipb_squeeze_zone = _transition_clips(clipa, clipb, frames)
-
-    _squeeze: Callable[[int], vs.VideoNode] = ...
-    if direction in [Direction.LEFT, Direction.RIGHT]:
-
-        def _squeeze(n: int) -> vs.VideoNode:
-            clipb_width = math.floor(clipa.width * n / (frames - 1))
-            clipa_width = clipa.width - clipb_width
-
-            if n == 0 or clipb_width < 1:
-                return clipa_squeeze_zone
-            elif n == frames - 1:
-                return clipb_squeeze_zone
-            else:
-                clipa_squeezed = clipa_squeeze_zone.resize.Spline36(width=clipa_width)
-                clipb_squeezed = clipb_squeeze_zone.resize.Spline36(width=clipb_width)
-                if direction == Direction.LEFT:
-                    return core.std.StackHorizontal([clipa_squeezed, clipb_squeezed])
-                else:
-                    return core.std.StackHorizontal([clipb_squeezed, clipa_squeezed])
-
-    elif direction in [Direction.UP, Direction.DOWN]:
-
-        def _squeeze(n: int) -> vs.VideoNode:
-            clipb_height = math.floor(clipa.height * n / (frames - 1))
-            clipa_height = clipa.height - clipb_height
-
-            if n == 0 or clipb_height < 1:
-                return clipa_squeeze_zone
-            elif n == frames - 1:
-                return clipb_squeeze_zone
-            else:
-                clipa_squeezed = clipa_squeeze_zone.resize.Spline36(height=clipa_height)
-                clipb_squeezed = clipb_squeeze_zone.resize.Spline36(height=clipb_height)
-                if direction == Direction.UP:
-                    return core.std.StackVertical([clipa_squeezed, clipb_squeezed])
-                else:
-                    return core.std.StackVertical([clipb_squeezed, clipa_squeezed])
-
-    else:
-        raise ValueError("squeeze_expand: give a proper direction")
-
-    squeezed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _squeeze)
-
-    return _return_combo(clipa_clean, squeezed, clipb_clean)
-
-
 def cube_rotate(
     clipa: vs.VideoNode,
     clipb: vs.VideoNode,
@@ -682,20 +411,17 @@ def cube_rotate(
     exaggeration: int = 0,
 ) -> vs.VideoNode:
     """
-    Mimics a cube face rotation by adjusting the speed at which the squeeze boundary moves.
-    Cube face containing `clipa` rotates away from the viewer in `direction`.
+    Mimics a cube face rotation by adjusting the speed at which the :func:`squeeze_expand` boundary moves.
+    Cube face containing `clipa` rotates away from the viewer in projected 3-D space`direction`.
 
     `exaggeration` is an integer between 0 and 100 (inclusive) representing how much the effect of the cosine wave should be exaggerated:
         0 corresponds to a mathematically correct projection of a 90 degree rotation offset by 45 degrees
             initial and final velocities are pi/4 (0.785x), middle velocity is pi / (2 * sqrt2) (1.11x)
         100 corresponds to a fitted cosine wave where the initial and final velocities are 0, while the velocity at the middle is pi/2 (1.571x)
     """
-
-    _check_clips(frames, cube_rotate, clipa, clipb)
-
     if not (0 <= exaggeration <= 100):
         raise ValueError(f"cube_rotate: exaggeration {exaggeration} not between 0 and 100")
-
+    _check_clips(frames, cube_rotate, clipa, clipb)
     clipa_clean, clipb_clean, clipa_squeeze_zone, clipb_squeeze_zone = _transition_clips(clipa, clipb, frames)
 
     def rotation(percentage: float) -> float:
@@ -740,10 +466,8 @@ def cube_rotate(
                 clipb_squeezed = clipb_squeeze_zone.resize.Spline36(width=clipb_width)
                 if direction == Direction.LEFT:
                     return core.std.StackHorizontal([clipa_squeezed, clipb_squeezed])
-                else:
+                elif direction == Direction.RIGHT:
                     return core.std.StackHorizontal([clipb_squeezed, clipa_squeezed])
-
-        rotated = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _rotate)
 
     elif direction in [Direction.UP, Direction.DOWN]:
 
@@ -760,33 +484,261 @@ def cube_rotate(
                 clipb_squeezed = clipb_squeeze_zone.resize.Spline36(height=clipb_height)
                 if direction == Direction.UP:
                     return core.std.StackVertical([clipa_squeezed, clipb_squeezed])
-                else:
+                elif direction == Direction.DOWN:
                     return core.std.StackVertical([clipb_squeezed, clipa_squeezed])
-
-        rotated = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _rotate)
 
     else:
         raise ValueError("cube_rotate: give a proper direction")
 
+    rotated = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _rotate)
+
     return _return_combo(clipa_clean, rotated, clipb_clean)
 
 
-# marine = core.ffms2.Source('/home/stalled/marine.mp4')
-# marine = marine.resize.Bicubic(format=marine.format.replace(subsampling_w=0, subsampling_h=0).id)[:190]
-# pekora = core.ffms2.Source('/home/stalled/pekora.mp4')
-# pekora = pekora.resize.Bicubic(format=pekora.format.replace(subsampling_w=0, subsampling_h=0).id)[:190]
-#
-#
-# a=poly_fade(marine, pekora, 170)
-# b=poly_fade(marine, pekora, 170, 5)
-# c=fade(marine, pekora, 170)
-# core.std.StackVertical([a,b,c]).set_output()
-#
-# # # a = squeeze_expand(marine, pekora, 120).text.Text('linear')
-# # # b = cube_rotate(marine, pekora, 120).text.Text('cosine projection')
-# # # c = cube_rotate(marine, pekora, 120, exaggeration=50).text.Text('50% bias')
-# # # d = cube_rotate(marine, pekora, 120, exaggeration=100).text.Text('fitted cosine (100% bias)')
-# #
+def linear_boundary(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    clipa_movement: MiscConstants,
+    clipb_movement: MiscConstants,
+    frames: Optional[int] = None,
+    direction: Direction = Direction.LEFT,
+) -> vs.VideoNode:
+    """Generalized boundary moving function for a linear transition between two stacked clips.
+
+    `clipa` can either slide out of view (having its size unchanged) or be squeezed to nothing from its original size.
+    `clipb` can either slide into view (having its size unchanged) or be expanded from nothing to its full size.
+    The boundary between the two clips moves towards `direction`.
+
+    The parameter `clipa_movement` can be :attr:`MiscConstants.SLIDE` or :attr:`MiscConstants.SQUEEZE`.
+    The parameter `clipb_movement` can be :attr:`MiscConstants.SLIDE` or :attr:`MiscConstants.EXPAND`.
+
+    See :func:`push`, :func:`slide_expand`, :func:`squeeze_slide`, or :func:`squeeze_expand`
+    for simpler aliases in the same form as most other linear, directional transitions.
+    """
+    if clipa_movement not in [MiscConstants.SLIDE, MiscConstants.SQUEEZE]:
+        raise ValueError("linear_boundary: clipa_movement must be either a slide or a squeeze")
+    if clipb_movement not in [MiscConstants.SLIDE, MiscConstants.EXPAND]:
+        raise ValueError("linear_boundary: clipb_movement must be either a slide or an expand")
+    if direction not in [Direction.LEFT, Direction.RIGHT, Direction.UP, Direction.DOWN]:
+        raise ValueError("linear_boundary: give a proper direction")
+    frames_ = frames or min(clipa.num_frames, clipb.num_frames)
+    if TYPE_CHECKING:
+        assert isinstance(frames_, int)
+    check_for_subsampling = not (
+        clipa_movement == clipb_movement == MiscConstants.SLIDE
+    )  # only need subsampling check if resizing
+    _check_clips(frames_, linear_boundary, clipa, clipb, subsampling=check_for_subsampling)
+    clipa_clean, clipb_clean, clipa_t_zone, clipb_t_zone = _transition_clips(clipa, clipb, frames_)
+
+    if clipa_movement == clipb_movement == MiscConstants.SLIDE:
+        w, h = clipa.width, clipa.height
+
+        def _stack(clipa_: vs.VideoNode, clipb_: vs.VideoNode) -> vs.VideoNode:
+            if direction == Direction.LEFT:
+                return core.std.StackHorizontal([clipa_, clipb_])
+            elif direction == Direction.RIGHT:
+                return core.std.StackHorizontal([clipb_, clipa_])
+            elif direction == Direction.UP:
+                return core.std.StackVertical([clipa_, clipb_])
+            elif direction == Direction.DOWN:
+                return core.std.StackVertical([clipb_, clipa_])
+
+        stack = _stack(clipa_t_zone, clipb_t_zone)
+
+        def _push(n: int) -> vs.VideoNode:
+            if direction == Direction.LEFT:
+                return stack.resize.Spline36(width=w, src_left=w * n / (frames_ - 1), src_width=w)
+            elif direction == Direction.RIGHT:
+                return stack.resize.Spline36(width=w, src_left=w * (1 - n / (frames_ - 1)), src_width=w)
+            elif direction == Direction.UP:
+                return stack.resize.Spline36(height=h, src_top=h * n / (frames_ - 1), src_height=h)
+            elif direction == Direction.DOWN:
+                return stack.resize.Spline36(height=h, src_top=h * (1 - n / (frames_ - 1)), src_height=h)
+
+        pushed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _push)
+
+        return _return_combo(clipa_clean, pushed, clipb_clean)
+
+    elif clipa_movement == MiscConstants.SLIDE and clipb_movement == MiscConstants.EXPAND:
+
+        def _slide_expand(n: int):
+            scale = Fraction(n, (frames_ - 1))
+
+            if direction in [Direction.LEFT, Direction.RIGHT]:
+                if w := math.floor(scale * clipa.width):
+                    resized_b = clipb_t_zone.resize.Spline36(width=w)
+
+                    if direction == Direction.LEFT:
+                        stack = core.std.StackHorizontal([clipa_t_zone, resized_b])
+                        return stack.std.Crop(left=w)
+
+                    elif direction == Direction.RIGHT:
+                        stack = core.std.StackHorizontal([resized_b, clipa_t_zone])
+                        return stack.std.Crop(right=w)
+                else:
+                    return clipa_t_zone
+
+            elif direction in [Direction.UP, Direction.DOWN]:
+                if h := math.floor(scale * clipa.height):
+                    resized_b = clipb_t_zone.resize.Spline36(height=h)
+
+                    if direction == Direction.UP:
+                        stack = core.std.StackVertical([clipa_t_zone, resized_b])
+                        return stack.std.Crop(top=h)
+
+                    elif direction == Direction.DOWN:
+                        stack = core.std.StackVertical([resized_b, clipa_t_zone])
+                        return stack.std.Crop(bottom=h)
+
+                else:
+                    return clipa_t_zone
+
+        slide_expanded = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _slide_expand)
+
+        return _return_combo(clipa_clean, slide_expanded, clipb_clean)
+
+    elif clipa_movement == MiscConstants.SQUEEZE and clipb_movement == MiscConstants.SLIDE:
+
+        def _squeeze_slide(n: int):
+            scale = 1 - Fraction(n, (frames_ - 1))
+
+            if direction in [Direction.LEFT, Direction.RIGHT]:
+                if w := math.floor(scale * clipa.width):
+                    resized_a = clipa_t_zone.resize.Spline36(width=w)
+
+                    if direction == Direction.LEFT:
+                        stack = core.std.StackHorizontal([resized_a, clipb_t_zone])
+                        return stack.std.Crop(right=w)
+
+                    elif direction == Direction.RIGHT:
+                        stack = core.std.StackHorizontal([clipb_t_zone, resized_a])
+                        return stack.std.Crop(left=w)
+                else:
+                    return clipb_t_zone
+
+            elif direction in [Direction.UP, Direction.DOWN]:
+                if h := math.floor(scale * clipa.height):
+                    resized_a = clipa_t_zone.resize.Spline36(height=h)
+
+                    if direction == Direction.UP:
+                        stack = core.std.StackVertical([resized_a, clipb_t_zone])
+                        return stack.std.Crop(bottom=h)
+
+                    elif direction == Direction.DOWN:
+                        stack = core.std.StackVertical([clipb_t_zone, resized_a])
+                        return stack.std.Crop(top=h)
+
+                else:
+                    return clipb_t_zone
+
+        squeeze_slided = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _squeeze_slide)
+
+        return _return_combo(clipa_clean, squeeze_slided, clipb_clean)
+
+    elif clipa_movement == MiscConstants.SQUEEZE and clipb_movement == MiscConstants.EXPAND:
+        if direction in [Direction.LEFT, Direction.RIGHT]:
+
+            def _squeeze_expand(n: int) -> vs.VideoNode:
+                scale = Fraction(n, (frames_ - 1))
+                w_inc = math.floor(scale * clipa.width)  # width of increasing clip
+                w_dec = clipa.width - w_inc  # width of decreasing clip
+
+                if n == 0 or w_inc < 1:
+                    return clipa_t_zone
+
+                elif n == frames_ - 1 or w_dec < 1:
+                    return clipb_t_zone
+
+                else:
+                    clipa_sized = clipa_t_zone.resize.Spline36(width=w_dec)
+                    clipb_sized = clipb_t_zone.resize.Spline36(width=w_inc)
+
+                    if direction == Direction.LEFT:
+                        return core.std.StackHorizontal([clipa_sized, clipb_sized])
+
+                    elif direction == Direction.RIGHT:
+                        return core.std.StackHorizontal([clipb_sized, clipa_sized])
+
+        elif direction in [Direction.UP, Direction.DOWN]:
+
+            def _squeeze_expand(n: int) -> vs.VideoNode:
+                scale = Fraction(n, (frames_ - 1))
+                h_inc = math.floor(scale * clipa.height)  # height of increasing clip
+                h_dec = clipa.height - h_inc  # height of decreasing clip
+
+                if n == 0 or h_inc < 1:
+                    return clipa_t_zone
+
+                elif n == frames_ - 1 or h_dec < 1:
+                    return clipb_t_zone
+
+                else:
+                    clipa_sized = clipa_t_zone.resize.Spline36(height=h_dec)
+                    clipb_sized = clipb_t_zone.resize.Spline36(height=h_inc)
+
+                    if direction == Direction.UP:
+                        return core.std.StackVertical([clipa_sized, clipb_sized])
+
+                    elif direction == Direction.DOWN:
+                        return core.std.StackVertical([clipb_sized, clipa_sized])
+
+        squeeze_expanded = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _squeeze_expand)
+
+        return _return_combo(clipa_clean, squeeze_expanded, clipb_clean)
+
+
+def push(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, direction: Direction = Direction.LEFT):
+    """Second clip pushes first clip off of the screen.
+
+    The first clip moves off of the screen moving towards the given `direction`.
+
+    Alias for :func:`linear_boundary` with ``clipa_movement=SLIDE`` and ``clipb_movement=SLIDE``.
+    """
+    return linear_boundary(clipa, clipb, MiscConstants.SLIDE, MiscConstants.SLIDE, frames=frames, direction=direction)
+
+
+def slide_expand(
+    clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, direction: Direction = Direction.LEFT
+):
+    """First clip slides out of view, while second clip expands into view from nothing.
+
+    `clipa` slides off of the screen towards `direction`.
+    `clipb` expands into view from the opposite side of the given direction.
+
+    Alias for :func:`linear_boundary` with ``clipa_movement=SLIDE`` and ``clipb_movement=EXPAND``.
+    """
+    return linear_boundary(clipa, clipb, MiscConstants.SLIDE, MiscConstants.EXPAND, frames=frames, direction=direction)
+
+
+def squeeze_slide(
+    clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, direction: Direction = Direction.LEFT
+):
+    """First clip squeezes into nothing, while second clip slides into view.
+
+    `clipa` gets compressed off of the screen towards `direction`.
+    `clipb` slides into view from the opposite side of the given direction.
+
+    Alias for :func:`linear_boundary` with ``clipa_movement=SQUEEZE`` and ``clipb_movement=SLIDE``.
+    """
+    return linear_boundary(clipa, clipb, MiscConstants.SQUEEZE, MiscConstants.SLIDE, frames=frames, direction=direction)
+
+
+def squeeze_expand(
+    clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, direction: Direction = Direction.LEFT
+):
+    """First clip squeezes into nothing, while second clip expands into view from nothing.
+
+    `clipa` gets compressed off of the screen towards `direction`.
+    `clipb` expands into view from the opposite side of the given direction.
+
+    Alias for :func:`linear_boundary` with ``clipa_movement=SQUEEZE`` and ``clipb_movement=EXPAND``.
+    """
+    return linear_boundary(
+        clipa, clipb, MiscConstants.SQUEEZE, MiscConstants.EXPAND, frames=frames, direction=direction
+    )
+
+
+# fmt: off
 # def _blur(n: int):
 #     return core.std.BoxBlur(marine, hradius=1, hpasses=n+1, vradius=1, vpasses=n+1)
 # #

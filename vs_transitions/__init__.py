@@ -186,10 +186,11 @@ def poly_fade(
     """
     if not (1 <= exponent <= 5):
         raise ValueError("poly_fade: exponent must be an int between 1 and 5 (inclusive)")
-    if frames is None:
-        frames = min(clipa.num_frames, clipb.num_frames)
-    _check_clips(frames, fade, clipa, clipb)
-    clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames)
+    frames_ = frames or min(clipa.num_frames, clipb.num_frames)
+    if TYPE_CHECKING:
+        assert isinstance(frames_, int)
+    _check_clips(frames_, fade, clipa, clipb)
+    clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames_)
 
     def get_pos(x: float) -> float:
         """Returns position as a float 0-1, based on a input percentage float 0-1"""
@@ -202,13 +203,13 @@ def poly_fade(
     def _fade(n: int) -> vs.VideoNode:
         if n == 0:
             return clipa_fade_zone
-        elif n == frames:
+        elif n == frames_ - 1:
             return clipb_fade_zone
         else:
-            percentage = n / (frames - 1)
+            percentage = n / (frames_ - 1)
             return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[get_pos(percentage)])
 
-    faded = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _fade)
+    faded = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _fade)
 
     return _return_combo(clipa_clean, faded, clipb_clean)
 
@@ -223,6 +224,9 @@ def fade_to_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.Vi
     If `frames` is not given, will fade to black over the entire duration of the `src_clip`.
     """
     black_clip = core.std.BlankClip(format=vs.GRAY8, length=frames, color=[0])
+    if TYPE_CHECKING:
+        assert black_clip.format is not None
+        assert src_clip.format is not None
     black_clip_resized = black_clip.resize.Point(
         width=src_clip.width,
         height=src_clip.height,

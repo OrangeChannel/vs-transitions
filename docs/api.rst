@@ -10,7 +10,7 @@ start with a pure frame from ``clipa``, or generally the first clip.
 The transition ends with a pure frame from ``clipb``,
 or generally the second clip.
 If specified, the transition will be ``frames`` long.
-If not given, the transition will be the entire length of the shortest clip given.
+If not given (or given ``0``), the transition will be the entire length of the shortest clip given.
 The ``frames`` parameter cannot excede the number of frames in either clip.
 
 All transitions, unless explicitly stated,

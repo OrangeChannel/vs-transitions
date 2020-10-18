@@ -1,4 +1,17 @@
 """Powerpoint-like transitions implemented in VapourSynth."""
+__all__ = [
+    "fade",
+    "fade_from_black",
+    "fade_to_black",
+    "linear_boundary",
+    "poly_fade",
+    "push",
+    "slide_expand",
+    "squeeze_expand",
+    "squeeze_slide",
+    "wipe",
+]
+
 import enum
 import math
 import os

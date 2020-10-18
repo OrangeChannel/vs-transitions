@@ -51,6 +51,25 @@ UP = Direction.UP
 DOWN = Direction.DOWN
 HORIZONTAL = Direction.HORIZONTAL
 VERTICAL = Direction.VERTICAL
+__all__ += list(Direction.__members__)
+
+
+class MiscConstants(str, enum.Enum):
+    """Miscellanious enumeration for some functions.
+
+    Members can be simply referenced by their names,
+    i.e. ``vs_transitions.SLIDE`` instead of ``vs_transitions.MiscConstants.SLIDE``.
+    """
+
+    SLIDE = "slide"
+    SQUEEZE = "squeeze"
+    EXPAND = "expand"
+
+
+SLIDE = MiscConstants.SLIDE
+SQUEEZE = MiscConstants.SQUEEZE
+EXPAND = MiscConstants.EXPAND
+__all__ += list(MiscConstants.__members__)
 
 
 def _check_clips(frames: int, caller: Callable, *clips: vs.VideoNode, **kwargs) -> None:

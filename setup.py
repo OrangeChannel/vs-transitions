@@ -6,7 +6,7 @@ exec(open(convert_path("vs_transitions/_metadata.py")).read())
 if not __author__ and not __version__:
     raise ValueError("setup: package missing metadata")
 
-with open("README.rst") as fh:
+with open("README.md") as fh:
     long_description = fh.read()
 
 with open("requirements.txt") as fh:

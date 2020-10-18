@@ -91,7 +91,7 @@ def _check_clips(frames: int, caller: Callable, *clips: vs.VideoNode, **kwargs) 
         same_check.add((clip.format.id, clip.width, clip.height))
 
         if kwargs:
-            if "subsampling" in kwargs:
+            if ("subsampling" in kwargs) and kwargs["subsampling"]:
                 if clip.format.subsampling_w != 0 or clip.format.subsampling_h != 0:
                     raise ValueError(
                         f"{caller.__name__}: all clips must have 444 chroma subsampling for a non-mod2 resize"

@@ -125,7 +125,7 @@ Directional Transitions
 
     wipe(hero[:84], dweebs[:84], frames=60).set_output()
 
-.. warning:: This is broken
+.. warning:: This is broken (vs/zimg bug with full/limited range grayscale clips as of vs R52 // zimg 3.0)
 
 .. autofunction:: vs_transitions.linear_boundary
 

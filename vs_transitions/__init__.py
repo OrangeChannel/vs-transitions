@@ -744,31 +744,3 @@ def squeeze_expand(
     return linear_boundary(
         clipa, clipb, MiscConstants.SQUEEZE, MiscConstants.EXPAND, frames=frames, direction=direction
     )
-
-
-# fmt: off
-# def _blur(n: int):
-#     return core.std.BoxBlur(marine, hradius=1, hpasses=n+1, vradius=1, vpasses=n+1)
-# #
-# core.std.FrameEval(core.std.BlankClip(marine, length=140), _blur).set_output()
-#
-# def _blur2(n: int):
-#     return core.std.BoxBlur(marine, hradius=0, hpasses=n+1, vradius=0, vpasses=n+1)
-#
-# core.std.FrameEval(marine, _blur2).set_output(1)
-#
-# #
-# # marine.std.BoxBlur(hradius=1, hpasses=1, vradius=1, vpasses=1).set_output()
-# # marine.std.BoxBlur(hradius=2, hpasses=1, vradius=2, vpasses=1).set_output(1)
-# # marine.std.BoxBlur(hradius=1, hpasses=2, vradius=1, vpasses=2).set_output(2)
-# # marine.std.BoxBlur(hradius=2, hpasses=2, vradius=2, vpasses=2).set_output(3)
-# # marine.resize.Point(width=marine.width//4, height=marine.width//4).std.Median().resize.Point(width=marine.width, height=marine.height).set_output(5)
-# # marine.resize.Point(width=marine.width//4, height=marine.width//4).resize.Point(width=marine.width, height=marine.height).set_output(6)
-# # marine.resize.Point(width=marine.width//8, height=marine.width//8).resize.Point(width=marine.width, height=marine.height).set_output(7)
-# # marine.resize.Point(width=marine.width//12, height=marine.width//12).std.Median().resize.Point(width=marine.width, height=marine.height).set_output(8)
-# # marine.resize.Point(width=marine.width//15, height=marine.width//15).resize.Point(width=marine.width, height=marine.height).set_output(9)
-# #
-# # # vsutil.iterate(marine, core.std.Median, 5).set_output(4)
-#
-#
-# # def blur_fade

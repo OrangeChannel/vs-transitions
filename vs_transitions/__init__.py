@@ -406,23 +406,28 @@ def wipe(
 def cube_rotate(
     clipa: vs.VideoNode,
     clipb: vs.VideoNode,
-    frames: int,
+    frames: Optional[int] = None,
     direction: Direction = Direction.LEFT,
     exaggeration: int = 0,
 ) -> vs.VideoNode:
-    """
-    Mimics a cube face rotation by adjusting the speed at which the :func:`squeeze_expand` boundary moves.
-    Cube face containing `clipa` rotates away from the viewer in projected 3-D space`direction`.
+    """Mimics a cube face rotation by adjusting the speed at which the :func:`squeeze_expand` boundary moves.
+
+    Cube face containing `clipa` rotates away from the viewer in projected 3-D space towards `direction`.
 
     `exaggeration` is an integer between 0 and 100 (inclusive) representing how much the effect of the cosine wave should be exaggerated:
-        0 corresponds to a mathematically correct projection of a 90 degree rotation offset by 45 degrees
-            initial and final velocities are pi/4 (0.785x), middle velocity is pi / (2 * sqrt2) (1.11x)
-        100 corresponds to a fitted cosine wave where the initial and final velocities are 0, while the velocity at the middle is pi/2 (1.571x)
+        `0` corresponds to a mathematically correct projection of a 90 degree rotation offset by 45 degrees.
+            Initial and final velocities are ``pi/4 (0.785x)``,
+            and the middle velocity is ``pi / (2 * sqrt2) (1.11x)`` (relative to the linear transition).
+        `100` corresponds to a fitted cosine wave where the initial and final velocities are ``0``,
+        and the velocity at the middle is ``pi/2 (1.571x)`` (relative to the linear transition).
     """
     if not (0 <= exaggeration <= 100):
         raise ValueError(f"cube_rotate: exaggeration {exaggeration} not between 0 and 100")
-    _check_clips(frames, cube_rotate, clipa, clipb)
-    clipa_clean, clipb_clean, clipa_squeeze_zone, clipb_squeeze_zone = _transition_clips(clipa, clipb, frames)
+    frames_ = frames or min(clipa.num_frames, clipb.num_frames)
+    if TYPE_CHECKING:
+        assert isinstance(frames_, int)
+    _check_clips(frames_, cube_rotate, clipa, clipb)
+    clipa_clean, clipb_clean, clipa_squeeze_zone, clipb_squeeze_zone = _transition_clips(clipa, clipb, frames_)
 
     def rotation(percentage: float) -> float:
         """Return a radian rotation based on `percentage` ranging from -pi/4 at 0% to -3pi/4 at 100%"""
@@ -454,16 +459,16 @@ def cube_rotate(
     if direction in [Direction.LEFT, Direction.RIGHT]:
 
         def _rotate(n: int):
-            clipb_width = math.floor(clipa.width * position(n / (frames - 1), exaggeration))
-            clipa_width = clipa.width - clipb_width
+            w_inc = math.floor(clipa.width * position(n / (frames_ - 1), exaggeration))
+            w_dec = clipa.width - w_inc
 
-            if clipa_width == clipa.width:
+            if w_dec == clipa.width:
                 return clipa_squeeze_zone
-            elif clipb_width == clipa.width:
+            elif w_inc == clipa.width:
                 return clipb_squeeze_zone
             else:
-                clipa_squeezed = clipa_squeeze_zone.resize.Spline36(width=clipa_width)
-                clipb_squeezed = clipb_squeeze_zone.resize.Spline36(width=clipb_width)
+                clipa_squeezed = clipa_squeeze_zone.resize.Spline36(width=w_dec)
+                clipb_squeezed = clipb_squeeze_zone.resize.Spline36(width=w_inc)
                 if direction == Direction.LEFT:
                     return core.std.StackHorizontal([clipa_squeezed, clipb_squeezed])
                 elif direction == Direction.RIGHT:
@@ -472,16 +477,16 @@ def cube_rotate(
     elif direction in [Direction.UP, Direction.DOWN]:
 
         def _rotate(n: int):
-            clipb_height = math.floor(clipa.height * position(n / (frames - 1), exaggeration))
-            clipa_height = clipa.height - clipb_height
+            h_inc = math.floor(clipa.height * position(n / (frames_ - 1), exaggeration))
+            h_dec = clipa.height - h_inc
 
-            if clipa_height == clipa.height:
+            if h_dec == clipa.height:
                 return clipa_squeeze_zone
-            elif clipb_height == clipa.height:
+            elif h_inc == clipa.height:
                 return clipb_squeeze_zone
             else:
-                clipa_squeezed = clipa_squeeze_zone.resize.Spline36(height=clipa_height)
-                clipb_squeezed = clipb_squeeze_zone.resize.Spline36(height=clipb_height)
+                clipa_squeezed = clipa_squeeze_zone.resize.Spline36(height=h_dec)
+                clipb_squeezed = clipb_squeeze_zone.resize.Spline36(height=h_inc)
                 if direction == Direction.UP:
                     return core.std.StackVertical([clipa_squeezed, clipb_squeezed])
                 elif direction == Direction.DOWN:
@@ -490,7 +495,7 @@ def cube_rotate(
     else:
         raise ValueError("cube_rotate: give a proper direction")
 
-    rotated = core.std.FrameEval(core.std.BlankClip(clipa, length=frames), _rotate)
+    rotated = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _rotate)
 
     return _return_combo(clipa_clean, rotated, clipb_clean)
 

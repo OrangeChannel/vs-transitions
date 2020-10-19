@@ -164,3 +164,28 @@ Directional Transitions
 
 .. image:: /images/squeeze_expand.gif
     :align: center
+
+.. autofunction:: vs_transitions.cube_rotate
+
+For an explanation for the `exaggeration` effect, see the following video.
+The green (circle) is moving with an `exaggeration` of 0, representing a 2-D projection of the rotating cube face.
+The blue (cross) is moving with an `exaggeration` of 100, which is simply just a cosine wave.
+
+.. image:: /images/cube_rotate_expl.gif
+    :align: center
+
+.. code-block:: python
+
+    cube_rotate(hero[:96], dweebs[:96], frames=84).set_output()
+
+.. image:: /images/cube_rotate0.gif
+    :align: center
+
+.. code-block:: python
+
+    cube_rotate(hero[:96], dweebs[:96], frames=84, exaggeration=100).set_output()
+
+.. image:: /images/cube_rotate100.gif
+    :align: center
+
+

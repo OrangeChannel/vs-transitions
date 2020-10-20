@@ -155,15 +155,16 @@ def fade(clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None)
     clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames_)
 
     def _fade(n: int) -> vs.VideoNode:
-        if n == 0:
+        progress = Fraction(n, frames_ - 1)
+        if progress == 0:
             return clipa_fade_zone
-        elif n == frames_ - 1:
+        elif progress == 1:
             return clipb_fade_zone
         else:
             return core.std.Merge(
                 clipa_fade_zone,
                 clipb_fade_zone,
-                weight=[float(Fraction(n, (frames_ - 1)))],
+                weight=[float(progress)],
             )
 
     faded = core.std.FrameEval(clipa_fade_zone, _fade)
@@ -194,22 +195,22 @@ def poly_fade(
     _check_clips(frames_, fade, clipa, clipb)
     clipa_clean, clipb_clean, clipa_fade_zone, clipb_fade_zone = _transition_clips(clipa, clipb, frames_)
 
-    def get_pos(x: float) -> float:
-        """Returns position as a float 0-1, based on a input percentage float 0-1"""
+    def get_pos(x: Fraction) -> Fraction:
+        """Returns position as a fractions.Fraction, based on a input percentage fractions.Fraction"""
 
-        def _curve(y: float) -> float:
-            return -(((2 * y - 1) ** (2 * exponent + 1)) / (4 * exponent + 2)) + y - 0.5
+        def _curve(y: Fraction) -> Fraction:
+            return -(((2 * y - 1) ** (2 * exponent + 1)) / (4 * exponent + 2)) + y - Fraction(1, 2)
 
-        return round(((_curve(1) - _curve(0)) ** -1) * (_curve(x) - _curve(0)), 9)
+        return ((_curve(Fraction(1, 1)) - _curve(Fraction())) ** -1) * (_curve(x) - _curve(Fraction()))
 
     def _fade(n: int) -> vs.VideoNode:
-        if n == 0:
+        progress = Fraction(n, frames_ - 1)
+        if progress == 0:
             return clipa_fade_zone
-        elif n == frames_ - 1:
+        elif progress == 1:
             return clipb_fade_zone
         else:
-            percentage = n / (frames_ - 1)
-            return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[get_pos(percentage)])
+            return core.std.Merge(clipa_fade_zone, clipb_fade_zone, weight=[float(get_pos(progress))])
 
     faded = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _fade)
 

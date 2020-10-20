@@ -291,6 +291,8 @@ def wipe(
     and possibly less accurate approach using lists
     and the ``ctypes`` module for writing to a VapourSynth frame.
     """
+    if direction not in [Direction.LEFT, Direction.RIGHT, Direction.UP, Direction.DOWN]:
+        raise ValueError("wipe: give a proper direction")
     frames_ = frames or min(clipa.num_frames, clipb.num_frames)
     if TYPE_CHECKING:
         assert isinstance(frames_, int)
@@ -398,9 +400,6 @@ def wipe(
                 )
                 return core.std.MaskedMerge(clipa_wipe_zone, clipb_wipe_zone, stack_)
 
-        else:
-            raise ValueError("wipe: give a proper direction")
-
     wiped = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _wipe)
 
     return _return_combo(clipa_clean, wiped, clipb_clean)
@@ -427,6 +426,8 @@ def cube_rotate(
         `100` corresponds to a fitted cosine wave where the initial and final velocities are ``0``,
         and the velocity at the middle is ``pi/2 (1.571x)`` (relative to the linear transition).
     """
+    if direction not in [Direction.LEFT, Direction.RIGHT, Direction.UP, Direction.DOWN]:
+        raise ValueError("cube_rotate: give a proper direction")
     if not (0 <= exaggeration <= 100):
         raise ValueError(f"cube_rotate: exaggeration {exaggeration} not between 0 and 100")
     frames_ = frames or min(clipa.num_frames, clipb.num_frames)
@@ -497,9 +498,6 @@ def cube_rotate(
                     return core.std.StackVertical([clipa_squeezed, clipb_squeezed])
                 elif direction == Direction.DOWN:
                     return core.std.StackVertical([clipb_squeezed, clipa_squeezed])
-
-    else:
-        raise ValueError("cube_rotate: give a proper direction")
 
     rotated = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _rotate)
 
@@ -573,36 +571,38 @@ def linear_boundary(
     elif clipa_movement == MiscConstants.SLIDE and clipb_movement == MiscConstants.EXPAND:
 
         def _slide_expand(n: int):
-            scale = Fraction(n, (frames_ - 1))
+            scale = Fraction(n, frames_ - 1)
+
+            if scale == 0:
+                return clipa_t_zone
+            elif scale == 1:
+                return clipb_t_zone
 
             if direction in [Direction.LEFT, Direction.RIGHT]:
-                if w := math.floor(scale * clipa.width):
-                    resized_b = clipb_t_zone.resize.Spline36(width=w)
+                w = math.floor(scale * clipa.width)
 
-                    if direction == Direction.LEFT:
-                        stack = core.std.StackHorizontal([clipa_t_zone, resized_b])
-                        return stack.std.Crop(left=w)
-
-                    elif direction == Direction.RIGHT:
-                        stack = core.std.StackHorizontal([resized_b, clipa_t_zone])
-                        return stack.std.Crop(right=w)
-                else:
+                if w == 0:
                     return clipa_t_zone
+
+                if direction == Direction.LEFT:
+                    stack = core.std.StackHorizontal([clipa_t_zone, clipb_t_zone.resize.Spline36(width=w)])
+                    return stack.std.Crop(left=w)
+                elif direction == Direction.RIGHT:
+                    stack = core.std.StackHorizontal([clipb_t_zone.resize.Spline36(width=w), clipa_t_zone])
+                    return stack.std.Crop(right=w)
 
             elif direction in [Direction.UP, Direction.DOWN]:
-                if h := math.floor(scale * clipa.height):
-                    resized_b = clipb_t_zone.resize.Spline36(height=h)
+                h = math.floor(scale * clipa.height)
 
-                    if direction == Direction.UP:
-                        stack = core.std.StackVertical([clipa_t_zone, resized_b])
-                        return stack.std.Crop(top=h)
-
-                    elif direction == Direction.DOWN:
-                        stack = core.std.StackVertical([resized_b, clipa_t_zone])
-                        return stack.std.Crop(bottom=h)
-
-                else:
+                if h == 0:
                     return clipa_t_zone
+
+                if direction == Direction.UP:
+                    stack = core.std.StackVertical([clipa_t_zone, clipb_t_zone.resize.Spline36(height=h)])
+                    return stack.std.Crop(top=h)
+                elif direction == Direction.DOWN:
+                    stack = core.std.StackVertical([clipb_t_zone.resize.Spline36(height=h), clipa_t_zone])
+                    return stack.std.Crop(bottom=h)
 
         slide_expanded = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _slide_expand)
 
@@ -611,87 +611,85 @@ def linear_boundary(
     elif clipa_movement == MiscConstants.SQUEEZE and clipb_movement == MiscConstants.SLIDE:
 
         def _squeeze_slide(n: int):
-            scale = 1 - Fraction(n, (frames_ - 1))
+            scale = 1 - Fraction(n, frames_ - 1)
+
+            if scale == 1:
+                return clipa_t_zone
+            elif scale == 0:
+                return clipb_t_zone
 
             if direction in [Direction.LEFT, Direction.RIGHT]:
-                if w := math.floor(scale * clipa.width):
-                    resized_a = clipa_t_zone.resize.Spline36(width=w)
+                w = math.floor(scale * clipa.width)
 
-                    if direction == Direction.LEFT:
-                        stack = core.std.StackHorizontal([resized_a, clipb_t_zone])
-                        return stack.std.Crop(right=w)
-
-                    elif direction == Direction.RIGHT:
-                        stack = core.std.StackHorizontal([clipb_t_zone, resized_a])
-                        return stack.std.Crop(left=w)
-                else:
+                if w == 0:
                     return clipb_t_zone
+
+                if direction == Direction.LEFT:
+                    stack = core.std.StackHorizontal([clipa_t_zone.resize.Spline36(width=w), clipb_t_zone])
+                    return stack.std.Crop(right=w)
+                elif direction == Direction.RIGHT:
+                    stack = core.std.StackHorizontal([clipb_t_zone, clipa_t_zone.resize.Spline36(width=w)])
+                    return stack.std.Crop(left=w)
 
             elif direction in [Direction.UP, Direction.DOWN]:
-                if h := math.floor(scale * clipa.height):
-                    resized_a = clipa_t_zone.resize.Spline36(height=h)
+                h = math.floor(scale * clipa.height)
 
-                    if direction == Direction.UP:
-                        stack = core.std.StackVertical([resized_a, clipb_t_zone])
-                        return stack.std.Crop(bottom=h)
-
-                    elif direction == Direction.DOWN:
-                        stack = core.std.StackVertical([clipb_t_zone, resized_a])
-                        return stack.std.Crop(top=h)
-
-                else:
+                if h == 0:
                     return clipb_t_zone
+
+                if direction == Direction.UP:
+                    stack = core.std.StackVertical([clipa_t_zone.resize.Spline36(height=h), clipb_t_zone])
+                    return stack.std.Crop(bottom=h)
+
+                elif direction == Direction.DOWN:
+                    stack = core.std.StackVertical([clipb_t_zone, clipa_t_zone.resize.Spline36(height=h)])
+                    return stack.std.Crop(top=h)
 
         squeeze_slided = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _squeeze_slide)
 
         return _return_combo(clipa_clean, squeeze_slided, clipb_clean)
 
     elif clipa_movement == MiscConstants.SQUEEZE and clipb_movement == MiscConstants.EXPAND:
-        if direction in [Direction.LEFT, Direction.RIGHT]:
 
-            def _squeeze_expand(n: int) -> vs.VideoNode:
-                scale = Fraction(n, (frames_ - 1))
-                w_inc = math.floor(scale * clipa.width)  # width of increasing clip
-                w_dec = clipa.width - w_inc  # width of decreasing clip
+        def _squeeze_expand(n: int) -> vs.VideoNode:
+            scale = Fraction(n, frames_ - 1)
 
-                if n == 0 or w_inc < 1:
+            if scale == 0:
+                return clipa_t_zone
+            elif scale == 1:
+                return clipb_t_zone
+
+            if direction in [Direction.LEFT, Direction.RIGHT]:
+                w_inc = math.floor(scale * clipa.width)
+                w_dec = clipa.width - w_inc
+
+                if w_inc == 0:
                     return clipa_t_zone
 
-                elif n == frames_ - 1 or w_dec < 1:
-                    return clipb_t_zone
+                if direction == Direction.LEFT:
+                    return core.std.StackHorizontal(
+                        [clipa_t_zone.resize.Spline36(width=w_dec), clipb_t_zone.resize.Spline36(width=w_inc)]
+                    )
+                elif direction == Direction.RIGHT:
+                    return core.std.StackHorizontal(
+                        [clipb_t_zone.resize.Spline36(width=w_inc), clipa_t_zone.resize.Spline36(width=w_dec)]
+                    )
 
-                else:
-                    clipa_sized = clipa_t_zone.resize.Spline36(width=w_dec)
-                    clipb_sized = clipb_t_zone.resize.Spline36(width=w_inc)
+            elif direction in [Direction.UP, Direction.DOWN]:
+                h_inc = math.floor(scale * clipa.width)
+                h_dec = clipa.width - h_inc
 
-                    if direction == Direction.LEFT:
-                        return core.std.StackHorizontal([clipa_sized, clipb_sized])
-
-                    elif direction == Direction.RIGHT:
-                        return core.std.StackHorizontal([clipb_sized, clipa_sized])
-
-        elif direction in [Direction.UP, Direction.DOWN]:
-
-            def _squeeze_expand(n: int) -> vs.VideoNode:
-                scale = Fraction(n, (frames_ - 1))
-                h_inc = math.floor(scale * clipa.height)  # height of increasing clip
-                h_dec = clipa.height - h_inc  # height of decreasing clip
-
-                if n == 0 or h_inc < 1:
+                if h_inc == 0:
                     return clipa_t_zone
 
-                elif n == frames_ - 1 or h_dec < 1:
-                    return clipb_t_zone
-
-                else:
-                    clipa_sized = clipa_t_zone.resize.Spline36(height=h_dec)
-                    clipb_sized = clipb_t_zone.resize.Spline36(height=h_inc)
-
-                    if direction == Direction.UP:
-                        return core.std.StackVertical([clipa_sized, clipb_sized])
-
-                    elif direction == Direction.DOWN:
-                        return core.std.StackVertical([clipb_sized, clipa_sized])
+                if direction == Direction.UP:
+                    return core.std.StackVertical(
+                        [clipa_t_zone.resize.Spline36(width=h_dec), clipb_t_zone.resize.Spline36(width=h_inc)]
+                    )
+                elif direction == Direction.RIGHT:
+                    return core.std.StackVertical(
+                        [clipb_t_zone.resize.Spline36(width=h_inc), clipa_t_zone.resize.Spline36(width=h_dec)]
+                    )
 
         squeeze_expanded = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _squeeze_expand)
 

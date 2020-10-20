@@ -197,4 +197,13 @@ The blue (cross) is moving with an `exaggeration` of 100, which is simply just a
 .. image:: /images/cover.gif
     :align: center
 
+.. autofunction:: vs_transitions.reveal
+
+.. code-block:: python
+
+    reveal(hero[:84], dweebs[:84]).set_output()
+
+.. image:: /images/reveal.gif
+    :align: center
+
 

@@ -1,5 +1,7 @@
 """Powerpoint-like transitions implemented in VapourSynth."""
 __all__ = [
+    "cover",
+    "cube_rotate",
     "fade",
     "fade_from_black",
     "fade_to_black",
@@ -744,3 +746,54 @@ def squeeze_expand(
     return linear_boundary(
         clipa, clipb, MiscConstants.SQUEEZE, MiscConstants.EXPAND, frames=frames, direction=direction
     )
+
+
+def cover(
+    clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, direction: Direction = Direction.LEFT
+) -> vs.VideoNode:
+    """Second clip slides in and covers the first clip which stays in place.
+
+    `clipb` slides into frame towards `direction` covering `clipa`.
+    """
+    if direction not in [Direction.LEFT, Direction.RIGHT, Direction.UP, Direction.DOWN]:
+        raise ValueError("cover: give a proper direction")
+    frames_ = frames or min(clipa.num_frames, clipb.num_frames)
+    if TYPE_CHECKING:
+        assert isinstance(frames_, int)
+    _check_clips(frames_, cover, clipa, clipb)
+    clipa_clean, clipb_clean, clipa_t_zone, clipb_t_zone = _transition_clips(clipa, clipb, frames_)
+
+    def _cover(n: int) -> vs.VideoNode:
+        progress = Fraction(n, frames_ - 1)
+        w = math.floor(progress * clipa.width)
+        h = math.floor(progress * clipa.height)
+
+        if progress == 0:
+            return clipa_t_zone
+        elif progress == 1:
+            return clipb_t_zone
+
+        if w == 0 or h == 0:
+            return clipa_t_zone
+
+        if direction == Direction.LEFT:
+            cropped_a = clipa_t_zone.std.Crop(right=w)
+            stack = core.std.StackHorizontal([cropped_a, clipb_t_zone])
+            return stack.resize.Spline36(width=clipa.width, src_width=clipa.width)
+        elif direction == Direction.RIGHT:
+            cropped_a = clipa_t_zone.std.Crop(left=w)
+            stack = core.std.StackHorizontal([clipb_t_zone, cropped_a])
+            return stack.resize.Spline36(width=clipa.width, src_left=clipa.width - w, src_width=clipa.width)
+        elif direction == Direction.UP:
+            cropped_a = clipa_t_zone.std.Crop(bottom=h)
+            stack = core.std.StackVertical([cropped_a, clipb_t_zone])
+            return stack.resize.Spline36(height=clipa.height, src_height=clipa.height)
+        elif direction == Direction.DOWN:
+            cropped_a = clipa_t_zone.std.Crop(top=h)
+            stack = core.std.StackVertical([clipb_t_zone, cropped_a])
+            return stack.resize.Spline36(height=clipa.height, src_top=clipa.height - h, src_height=clipa.height)
+
+    covered = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _cover)
+
+    return _return_combo(clipa_clean, covered, clipb_clean)
+

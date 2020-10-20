@@ -188,4 +188,13 @@ The blue (cross) is moving with an `exaggeration` of 100, which is simply just a
 .. image:: /images/cube_rotate100.gif
     :align: center
 
+.. autofunction:: vs_transitions.cover
+
+.. code-block:: python
+
+    cover(hero[:84], dweebs[:84]).set_output()
+
+.. image:: /images/cover.gif
+    :align: center
+
 

@@ -334,7 +334,7 @@ def wipe(
         clipa.height,
         dither_type="error_diffusion",
         format=mask.format.replace(
-            bits_per_sample=clipa.format.bits_per_sample, color_family=vs.GRAY, sample_type=vs.INTEGER
+            bits_per_sample=clipa.format.bits_per_sample, color_family=vs.GRAY, sample_type=clipa.format.sample_type
         ).id,
         matrix_in_s="rgb",
     )
@@ -343,7 +343,7 @@ def wipe(
         clipa.height,
         dither_type="error_diffusion",
         format=mask.format.replace(
-            bits_per_sample=clipa.format.bits_per_sample, color_family=vs.GRAY, sample_type=vs.INTEGER
+            bits_per_sample=clipa.format.bits_per_sample, color_family=vs.GRAY, sample_type=clipa.format.sample_type
         ).id,
         matrix_in_s="rgb",
     )

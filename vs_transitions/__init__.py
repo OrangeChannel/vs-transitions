@@ -8,6 +8,7 @@ __all__ = [
     "linear_boundary",
     "poly_fade",
     "push",
+    "reveal",
     "slide_expand",
     "squeeze_expand",
     "squeeze_slide",

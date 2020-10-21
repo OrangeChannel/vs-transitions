@@ -777,8 +777,12 @@ def cover(
         elif progress == 1:
             return clipb_t_zone
 
-        if w == 0 or h == 0:
-            return clipa_t_zone
+        if direction in [Direction.LEFT, Direction.RIGHT]:
+            if w == 0:
+                return clipa_t_zone
+        elif direction in [Direction.UP, Direction.DOWN]:
+            if h == 0:
+                return clipa_t_zone
 
         if direction == Direction.LEFT:
             cropped_a = clipa_t_zone.std.Crop(right=w)
@@ -827,8 +831,12 @@ def reveal(
         elif progress == 0:
             return clipb_t_zone
 
-        if w == 0 or h == 0:
-            return clipb_t_zone
+        if direction in [Direction.LEFT, Direction.RIGHT]:
+            if w == 0:
+                return clipb_t_zone
+        elif direction in [Direction.UP, Direction.DOWN]:
+            if h == 0:
+                return clipb_t_zone
 
         if direction == Direction.LEFT:
             cropped_b = clipb_t_zone.std.Crop(left=w)

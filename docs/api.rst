@@ -206,4 +206,20 @@ The blue (cross) is moving with an `exaggeration` of 100, which is simply just a
 .. image:: /images/reveal.gif
     :align: center
 
+.. autofunction:: vs_transitions.curtain_cover
 
+.. code-block:: python
+
+    curtain_cover(hero[:84], dweebs[:84]).set_output()
+
+.. image:: /images/curtain_cover.gif
+    :align: center
+
+.. autofunction:: vs_transitions.curtain_reveal
+
+.. code-block:: python
+
+    curtain_reveal(hero[:84], dweebs[:84]).set_output()
+
+.. image:: /images/curtain_reveal.gif
+    :align: center

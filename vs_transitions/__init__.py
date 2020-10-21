@@ -2,6 +2,8 @@
 __all__ = [
     "cover",
     "cube_rotate",
+    "curtain_cover",
+    "curtain_reveal",
     "fade",
     "fade_from_black",
     "fade_to_black",
@@ -858,3 +860,141 @@ def reveal(
     covered = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _reveal)
 
     return _return_combo(clipa_clean, covered, clipb_clean)
+
+
+def curtain_cover(
+    clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, axis: Direction = Direction.HORIZONTAL
+) -> vs.VideoNode:
+    """Second clip comes into view from both directions split along the given axis covering the first clip in place.
+
+    `clipb` splits and moves inwards along the given `axis`.
+
+    If `axis` is given as :attr:`Direction.HORIZONTAL`, the clips must have an even integer width.
+    If `axis` is given as :attr:`Direction.VERTICAL`, the clips must have an even integer height.
+    """
+    if axis not in [Direction.HORIZONTAL, Direction.VERTICAL]:
+        raise ValueError("curtain_cover: give a proper axis")
+    if axis == Direction.HORIZONTAL and clipa.width % 2:
+        raise ValueError("curtain_cover: for horizontal reveal, input clips must have an even width")
+    elif axis == Direction.VERTICAL and clipa.height % 2:
+        raise ValueError("curtain_cover: for vertical reveal, input clips must have an even height")
+    frames_ = frames or min(clipa.num_frames, clipb.num_frames)
+    if TYPE_CHECKING:
+        assert isinstance(frames_, int)
+    _check_clips(frames_, curtain_cover, clipa, clipb)
+    clipa_clean, clipb_clean, clipa_t_zone, clipb_t_zone = _transition_clips(clipa, clipb, frames_)
+
+    def _curtain_cover(n: int) -> vs.VideoNode:
+        progress = Fraction(n, frames_ - 1)
+
+        if progress == 0:
+            return clipa_t_zone
+        elif progress == 1:
+            return clipb_t_zone
+
+        if axis == Direction.HORIZONTAL:
+            w = round(float(clipa.width * progress / 2)) * 2
+
+            if w == 0:
+                return clipa_t_zone
+            elif w == clipa.width:
+                return clipb_t_zone
+
+            clipb_left = clipb_t_zone.std.Crop(right=clipa.width // 2)
+            clipb_right = clipb_t_zone.std.Crop(left=clipa.width // 2)
+
+            clipb_left = clipb_left.std.Crop(left=clipb_left.width - w // 2)
+            clipb_right = clipb_right.std.Crop(right=clipb_right.width - w // 2)
+
+            clipa_cropped = clipa_t_zone.std.Crop(left=clipb_left.width, right=clipb_right.width)
+            return core.std.StackHorizontal([clipb_left, clipa_cropped, clipb_right])
+
+        elif axis == Direction.VERTICAL:
+            h = round(float(clipa.height * progress / 2)) * 2
+
+            if h == 0:
+                return clipa_t_zone
+            elif h == clipa.height:
+                return clipb_t_zone
+
+            clipb_top = clipb_t_zone.std.Crop(bottom=clipa.height // 2)
+            clipb_bottom = clipb_t_zone.std.Crop(top=clipa.height // 2)
+
+            clipb_top = clipb_top.std.Crop(top=clipb_top.height - h // 2)
+            clipb_bottom = clipb_bottom.std.Crop(bottom=clipb_bottom.height - h // 2)
+
+            clipa_cropped = clipa_t_zone.std.Crop(top=clipb_top.height, bottom=clipb_bottom.height)
+            return core.std.StackVertical([clipb_top, clipa_cropped, clipb_bottom])
+
+    curtain_covered = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _curtain_cover)
+
+    return _return_combo(clipa_clean, curtain_covered, clipb_clean)
+
+
+def curtain_reveal(
+    clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, axis: Direction = Direction.HORIZONTAL
+) -> vs.VideoNode:
+    """First clip splits apart to reveal the second clip in place.
+
+    `clipa` splits and moves apart along the given `axis`.
+
+    If `axis` is given as :attr:`Direction.HORIZONTAL`, the clips must have an even integer width.
+    If `axis` is given as :attr:`Direction.VERTICAL`, the clips must have an even integer height.
+    """
+    if axis not in [Direction.HORIZONTAL, Direction.VERTICAL]:
+        raise ValueError("curtain_reveal: give a proper axis")
+    if axis == Direction.HORIZONTAL and clipa.width % 2:
+        raise ValueError("curtain_reveal: for horizontal reveal, input clips must have an even width")
+    elif axis == Direction.VERTICAL and clipa.height % 2:
+        raise ValueError("curtain_reveal: for vertical reveal, input clips must have an even height")
+    frames_ = frames or min(clipa.num_frames, clipb.num_frames)
+    if TYPE_CHECKING:
+        assert isinstance(frames_, int)
+    _check_clips(frames_, curtain_reveal, clipa, clipb)
+    clipa_clean, clipb_clean, clipa_t_zone, clipb_t_zone = _transition_clips(clipa, clipb, frames_)
+
+    def _curtain_reveal(n: int) -> vs.VideoNode:
+        progress = Fraction(n, frames_ - 1)
+
+        if progress == 0:
+            return clipa_t_zone
+        elif progress == 1:
+            return clipb_t_zone
+
+        if axis == Direction.HORIZONTAL:
+            w = round(float(clipa.width * progress / 2)) * 2
+
+            if w == 0:
+                return clipa_t_zone
+            elif w == clipa.width:
+                return clipb_t_zone
+
+            clipa_left = clipa_t_zone.std.Crop(right=clipa.width // 2)
+            clipa_right = clipa_t_zone.std.Crop(left=clipa.width // 2)
+
+            clipa_left = clipa_left.std.Crop(left=w // 2)
+            clipa_right = clipa_right.std.Crop(right=w // 2)
+
+            clipb_cropped = clipb_t_zone.std.Crop(left=clipa_left.width, right=clipa_right.width)
+            return core.std.StackHorizontal([clipa_left, clipb_cropped, clipa_right])
+
+        elif axis == Direction.VERTICAL:
+            h = round(float(clipa.height * progress / 2)) * 2
+
+            if h == 0:
+                return clipa_t_zone
+            elif h == clipa.height:
+                return clipb_t_zone
+
+            clipa_top = clipa_t_zone.std.Crop(bottom=clipa.height // 2)
+            clipa_bottom = clipa_t_zone.std.Crop(top=clipa.height // 2)
+
+            clipa_top = clipa_top.std.Crop(top=h // 2)
+            clipa_bottom = clipa_bottom.std.Crop(bottom=h // 2)
+
+            clipb_cropped = clipb_t_zone.std.Crop(top=clipa_top.height, bottom=clipa_bottom.height)
+            return core.std.StackVertical([clipa_top, clipb_cropped, clipa_bottom])
+
+    curtain_revealed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _curtain_reveal)
+
+    return _return_combo(clipa_clean, curtain_revealed, clipb_clean)

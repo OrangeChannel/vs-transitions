@@ -227,6 +227,8 @@ def fade_to_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.Vi
 
     If `frames` is not given, will fade to black over the entire duration of the `src_clip`.
     """
+    if src_clip.format is None:
+        raise ValueError("fade_to_black: `src_clip` must be a constant format VideoNode")
     black_clip = core.std.BlankClip(format=vs.GRAY8, length=frames, color=[0])
     if TYPE_CHECKING:
         assert black_clip.format is not None
@@ -254,6 +256,8 @@ def fade_from_black(src_clip: vs.VideoNode, frames: Optional[int] = None) -> vs.
 
     If `frames` is not given, will fade in over the entire duration of the `src_clip`.
     """
+    if src_clip.format is None:
+        raise ValueError("fade_to_black: `src_clip` must be a constant format VideoNode")
     black_clip = core.std.BlankClip(format=vs.GRAY8, length=frames, color=[0])
     if TYPE_CHECKING:
         assert black_clip.format is not None

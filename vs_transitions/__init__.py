@@ -998,3 +998,174 @@ def curtain_reveal(
     curtain_revealed = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _curtain_reveal)
 
     return _return_combo(clipa_clean, curtain_revealed, clipb_clean)
+
+
+def pixellate(
+    clipa: vs.VideoNode,
+    clipb: vs.VideoNode,
+    frames: Optional[int] = None,
+    lowest_target_w: Optional[int] = 2,
+    lowest_target_h: Optional[int] = 2,
+) -> vs.VideoNode:
+    """Pixellate using rescales and aggressively fade at the center.
+
+    For large clips (width `x` height), the effect might not be too noticeable
+    until the transition is near the middle point.
+    This is due to bicubic downscales and point re-upscales
+    at very high percentages of the original dimensions
+    not being noticeably different.
+
+    Due to the way pixellation progress is calculated,
+    the transition `must` be at least 4 frames long.
+
+    Longer transitions paired with larger target dimensions
+    will cause the pixellation effect to appear to pause towards the center of the transition.
+
+    :param lowest_target_w: An integer that determines the minimum width target to downscale to.
+        By specifying ``None``, or by specifying the width of the source clips, the clips will not be scaled in the
+        `x` or width direction, making this only pixellate vertically.
+
+    :param lowest_target_h: An integer that determines the minimum height target to downscale to.
+        By specifying ``None``, or by specifying the height of the source clips, the clips will not be scaled in the
+        `y` or height direction, making this only pixellate horizontally.
+    """
+    frames_ = frames or min(clipa.num_frames, clipb.num_frames)
+    if frames_ < 4:
+        raise ValueError("pixellate: transition must be at least 4 frames long")
+
+    if lowest_target_w is None:
+        lowest_target_w = clipa.width
+    if lowest_target_h is None:
+        lowest_target_h = clipa.height
+    if lowest_target_w < 1 or lowest_target_w > clipa.width:
+        raise ValueError("pixellate: `lowest_target_w` must be at least one and at most the width of the source clips")
+    if lowest_target_h < 1 or lowest_target_h > clipa.height:
+        raise ValueError("pixellate: `lowest_target_h` must be at least one and at most the height of the source clips")
+    if lowest_target_w == clipa.width and lowest_target_h == clipa.height:
+        raise ValueError("pixellate: at least one target dimension must be lower than the source dimensions")
+    lowest_target_w_ = lowest_target_w
+    lowest_target_h_ = lowest_target_h
+
+    if TYPE_CHECKING:
+        assert isinstance(frames_, int)
+        assert isinstance(lowest_target_w_, int)
+        assert isinstance(lowest_target_h_, int)
+    _check_clips(frames_, pixellate, clipa, clipb)
+    clipa_clean, clipb_clean, clipa_t_zone, clipb_t_zone = _transition_clips(clipa, clipb, frames_)
+
+    def _pixellate(n: int):
+        if iseven(frames_):
+            center = (frames_ - 1) / 2
+            if n < center:
+                progress_a = Fraction(math.floor(center) - n, math.floor(center)) ** 2
+
+                target_w_a = max([lowest_target_w_, math.floor(progress_a * clipa.width)])
+                target_h_a = max([lowest_target_h_, math.floor(progress_a * clipa.height)])
+
+                target_w_b = lowest_target_w_
+                target_h_b = lowest_target_h_
+
+                clipa_small = clipa_t_zone.resize.Bicubic(target_w_a, target_h_a)
+                clipb_small = clipb_t_zone.resize.Bicubic(target_w_b, target_h_b)
+
+                clipa_pixellated = clipa_small.resize.Point(clipa.width, clipa.height)
+                clipb_pixellated = clipb_small.resize.Point(clipa.width, clipa.height)
+
+                if n == math.floor(center):
+                    return core.std.Merge(clipa_pixellated, clipb_pixellated, [1 / 3])
+                else:
+                    return clipa_pixellated
+
+            else:
+                progress_b = Fraction(n - math.ceil(center), math.floor(center)) ** 2
+
+                target_w_b = max([lowest_target_w_, math.floor(progress_b * clipa.width)])
+                target_h_b = max([lowest_target_h_, math.floor(progress_b * clipa.height)])
+
+                target_w_a = lowest_target_w_
+                target_h_a = lowest_target_h_
+
+                clipa_small = clipa_t_zone.resize.Bicubic(target_w_a, target_h_a)
+                clipb_small = clipb_t_zone.resize.Bicubic(target_w_b, target_h_b)
+
+                clipa_pixellated = clipa_small.resize.Point(clipa.width, clipa.height)
+                clipb_pixellated = clipb_small.resize.Point(clipa.width, clipa.height)
+
+                if n == math.ceil(center):
+                    return core.std.Merge(clipa_pixellated, clipb_pixellated, [2 / 3])
+                else:
+                    return clipb_pixellated
+        else:
+            center = (frames_ - 1) // 2
+            if n < center:
+                progress_a = Fraction(center - n, center) ** 2
+
+                target_w_a = max([lowest_target_w_, math.floor(progress_a * clipa.width)])
+                target_h_a = max([lowest_target_h_, math.floor(progress_a * clipa.height)])
+
+                target_w_b = lowest_target_w_
+                target_h_b = lowest_target_h_
+
+                clipa_small = clipa_t_zone.resize.Bicubic(target_w_a, target_h_a)
+                clipb_small = clipb_t_zone.resize.Bicubic(target_w_b, target_h_b)
+
+                clipa_pixellated = clipa_small.resize.Point(clipa.width, clipa.height)
+                clipb_pixellated = clipb_small.resize.Point(clipa.width, clipa.height)
+
+                if n == center - 1:
+                    return core.std.Merge(clipa_pixellated, clipb_pixellated, [1 / 4])
+                else:
+                    return clipa_pixellated
+
+            elif n == center:
+                target_w_a = target_w_b = lowest_target_w_
+                target_h_a = target_h_b = lowest_target_h_
+                clipa_small = clipa_t_zone.resize.Bicubic(target_w_a, target_h_a)
+                clipb_small = clipb_t_zone.resize.Bicubic(target_w_b, target_h_b)
+
+                clipa_pixellated = clipa_small.resize.Point(clipa.width, clipa.height)
+                clipb_pixellated = clipb_small.resize.Point(clipa.width, clipa.height)
+
+                return core.std.Merge(clipa_pixellated, clipb_pixellated, [1 / 2])
+
+            else:
+                progress_b = Fraction(n - center, center) ** 2
+
+                target_w_b = max([lowest_target_w_, math.floor(progress_b * clipa.width)])
+                target_h_b = max([lowest_target_h_, math.floor(progress_b * clipa.height)])
+
+                target_w_a = lowest_target_w_
+                target_h_a = lowest_target_h_
+
+                clipa_small = clipa_t_zone.resize.Bicubic(target_w_a, target_h_a)
+                clipb_small = clipb_t_zone.resize.Bicubic(target_w_b, target_h_b)
+
+                clipa_pixellated = clipa_small.resize.Point(clipa.width, clipa.height)
+                clipb_pixellated = clipb_small.resize.Point(clipa.width, clipa.height)
+
+                if n == center + 1:
+                    return core.std.Merge(clipa_pixellated, clipb_pixellated, [3 / 4])
+                else:
+                    return clipb_pixellated
+
+    pixellated = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _pixellate)
+
+    return _return_combo(clipa_clean, pixellated, clipb_clean)
+
+
+def round_to(f: Fraction, n: int) -> int:
+    """Rounds a fractional value to the nearest `n`, rounding half up and never returning less than `n`"""
+    if n < 1:
+        raise ValueError("round_to: `n` must be an integer greater than 0")
+    if n == 1:
+        return max(1, round(float(f)))
+    else:
+        return max(n, round(float(f / n)) * n)
+
+
+def isodd(value: int) -> bool:
+    return bool(value % 2)
+
+
+def iseven(value: int) -> bool:
+    return not bool(value % 2)

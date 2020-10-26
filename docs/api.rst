@@ -87,6 +87,21 @@ Non-directional Transitions
 .. image:: /images/fade_from_black.gif
     :align: center
 
+.. autofunction:: vs_transitions.pixellate
+
+.. code-block:: python
+
+    pixellate(hero[:84], dweebs[:84], frames=36).set_output()
+
+.. image:: /images/pixellate.gif
+    :align: center
+
+.. note::
+    It's recommended that you keep the pixellation effect limited to about 2 seconds long.
+    Any longer than that and the transition will yield unwanted effects towards the middle point.
+    Changing the target downscale dimensions is also not recommended.
+    Using ``None`` or the source clip dimensions will yield interesting but generally terrible results.
+
 ----
 
 **Non-linear Transitions**

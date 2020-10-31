@@ -15,18 +15,20 @@ from os.path import abspath
 
 sys.path.insert(0, abspath('..'))
 
-meta = {}
-exec(open(abspath('../vs_transitions/_metadata.py')).read(), meta)
+__author__, __version__ = str(), str()
+exec(open(abspath('../vs_transitions/_metadata.py')).read())
+if not __author__ or not __version__:
+    raise ValueError("setup: package missing metadata")
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'vs_transitions'
-author = meta['__author__'].split()[0]
+author = __author__.split()[0]
 
 
 # The full version, including alpha/beta/rc tags
-version = release = meta['__version__']
+version = release = __version__
 
 
 # -- General configuration ---------------------------------------------------

@@ -3,7 +3,7 @@ from distutils.util import convert_path
 
 __author__, __version__ = str(), str()
 exec(open(convert_path("vs_transitions/_metadata.py")).read())
-if not __author__ and not __version__:
+if not __author__ or not __version__:
     raise ValueError("setup: package missing metadata")
 
 with open("README.md") as fh:

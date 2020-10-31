@@ -1155,6 +1155,68 @@ def pixellate(
     return _return_combo(clipa_clean, pixellated, clipb_clean)
 
 
+def peel(
+    clipa: vs.VideoNode, clipb: vs.VideoNode, frames: Optional[int] = None, direction: Direction = Direction.LEFT
+) -> vs.VideoNode:
+    """First clip peels away revealing the second clip beneath.
+
+    Both clips remain in place during the transition. The boundary between clips moves towards `direction`.
+    """
+    if direction not in [Direction.LEFT, Direction.RIGHT, Direction.UP, Direction.DOWN]:
+        raise ValueError("peel: give a proper direction")
+    frames_ = frames or min(clipa.num_frames, clipb.num_frames)
+    if TYPE_CHECKING:
+        assert isinstance(frames_, int)
+    _check_clips(frames_, peel, clipa, clipb, subsampling=True)
+    clipa_clean, clipb_clean, clipa_t_zone, clipb_t_zone = _transition_clips(clipa, clipb, frames_)
+
+    def _peel(n: int):
+        progress = Fraction(n, frames_ - 1)
+        if progress == 0:
+            return clipa_t_zone
+        elif progress == 1:
+            return clipb_t_zone
+        else:
+            if direction in [Direction.LEFT, Direction.RIGHT]:
+                clipb_w = math.floor(clipa.width * progress)
+                clipa_w = clipa.width - clipb_w
+
+                if clipb_w == 0:
+                    return clipa_t_zone
+                elif clipb_w == clipa.width:
+                    return clipb_t_zone
+                else:
+                    if direction == Direction.LEFT:
+                        clipa_cropped = clipa_t_zone.std.Crop(right=clipb_w)
+                        clipb_cropped = clipb_t_zone.std.Crop(left=clipa_w)
+                        return core.std.StackHorizontal([clipa_cropped, clipb_cropped])
+                    elif direction == Direction.RIGHT:
+                        clipa_cropped = clipa_t_zone.std.Crop(left=clipb_w)
+                        clipb_cropped = clipb_t_zone.std.Crop(right=clipa_w)
+                        return core.std.StackHorizontal([clipb_cropped, clipa_cropped])
+            elif direction in [Direction.UP, Direction.DOWN]:
+                clipb_h = math.floor(clipa.height * progress)
+                clipa_h = clipa.height - clipb_h
+
+                if clipb_h == 0:
+                    return clipa_t_zone
+                elif clipb_h == clipa.width:
+                    return clipb_t_zone
+                else:
+                    if direction == Direction.UP:
+                        clipa_cropped = clipa_t_zone.std.Crop(bottom=clipb_h)
+                        clipb_cropped = clipb_t_zone.std.Crop(top=clipa_h)
+                        return core.std.StackVertical([clipa_cropped, clipb_cropped])
+                    elif direction == Direction.RIGHT:
+                        clipa_cropped = clipa_t_zone.std.Crop(top=clipb_h)
+                        clipb_cropped = clipb_t_zone.std.Crop(bottom=clipa_h)
+                        return core.std.StackVertical([clipb_cropped, clipa_cropped])
+
+    peeled = core.std.FrameEval(core.std.BlankClip(clipa, length=frames_), _peel)
+
+    return _return_combo(clipa_clean, peeled, clipb_clean)
+
+
 def round_to(f: Fraction, n: int) -> int:
     """Rounds a fractional value to the nearest `n`, rounding half up and never returning less than `n`"""
     if n < 1:

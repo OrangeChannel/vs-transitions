@@ -1201,7 +1201,7 @@ def peel(
                         clipa_cropped = clipa_t_zone.std.Crop(bottom=clipb_h)
                         clipb_cropped = clipb_t_zone.std.Crop(top=clipa_h)
                         return core.std.StackVertical([clipa_cropped, clipb_cropped])
-                    elif direction == Direction.RIGHT:
+                    elif direction == Direction.DOWN:
                         clipa_cropped = clipa_t_zone.std.Crop(top=clipb_h)
                         clipb_cropped = clipb_t_zone.std.Crop(bottom=clipa_h)
                         return core.std.StackVertical([clipb_cropped, clipa_cropped])

@@ -186,6 +186,12 @@ For an explanation for the `exaggeration` effect, see the following video.
 The green (circle) is moving with an `exaggeration` of 0, representing a 2-D projection of the rotating cube face.
 The blue (cross) is moving with an `exaggeration` of 100, which is simply just a cosine wave.
 
+For an `exaggeration` of `0`, the initial and final velocities are ``pi/4 (0.785x)``,
+and the velocity at the middle is ``pi / (2 * sqrt2) (1.11x)`` (relative to the linear transition).
+
+For an `exaggeration` of `100`, the initial and final velocities are ``0``,
+and the velocity at the middle is ``pi/2 (1.571x)`` (relative to the linear transition).
+
 .. image:: /images/cube_rotate_expl.gif
     :align: center
 

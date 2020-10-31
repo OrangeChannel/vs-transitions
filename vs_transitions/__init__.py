@@ -425,15 +425,9 @@ def cube_rotate(
     Cube face containing `clipa` rotates away from the viewer in projected 3-D space towards `direction`.
 
     :param exaggeration: An integer between 0 and 100 (inclusive)
-        representing how much the effect of the cosine wave should be exaggerated::
-
+        representing how much the effect of the cosine wave should be exaggerated.
         `0` corresponds to a mathematically correct projection of a 90 degree rotation offset by 45 degrees.
-
-            Initial and final velocities are ``pi/4 (0.785x)``,
-            and the middle velocity is ``pi / (2 * sqrt2) (1.11x)`` (relative to the linear transition).
-
-        `100` corresponds to a fitted cosine wave where the initial and final velocities are ``0``,
-        and the velocity at the middle is ``pi/2 (1.571x)`` (relative to the linear transition).
+        `100` corresponds to a fitted cosine wave.
     """
     if direction not in [Direction.LEFT, Direction.RIGHT, Direction.UP, Direction.DOWN]:
         raise ValueError("cube_rotate: give a proper direction")

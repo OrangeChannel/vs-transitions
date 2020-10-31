@@ -183,12 +183,13 @@ def poly_fade(
 ) -> vs.VideoNode:
     """Cross-fade clips according to a curve.
 
-    The curve `exponent` is an integer in the range from 1-5
-    where 1 represents a parabolic curve, 2 represents a quartic curve,
-    and higher powers more resembling an tight ease-in-out function with constant speed for most of the transition.
+    :param exponent: An integer in the range from 1-5 (inclusive)
+        where 1 represents a parabolic curve, 2 represents a quartic curve,
+        and higher powers more resembling an tight ease-in-out function with constant speed for most of the transition.
 
-    An `exponent` of ``1`` is probably most useful, as higher exponents tend towards a constant speed and therefore are
-    almost indistinguishable from a normal :func:`fade`.
+        An `exponent` of ``1`` is probably most useful,
+        as higher exponents tend towards a constant speed and therefore are
+        almost indistinguishable from a normal :func:`fade`.
     """
     if not (1 <= exponent <= 5):
         raise ValueError("poly_fade: exponent must be an int between 1 and 5 (inclusive)")
@@ -423,7 +424,8 @@ def cube_rotate(
 
     Cube face containing `clipa` rotates away from the viewer in projected 3-D space towards `direction`.
 
-    `exaggeration` is an integer between 0 and 100 (inclusive) representing how much the effect of the cosine wave should be exaggerated:
+    :param exaggeration: An integer between 0 and 100 (inclusive)
+        representing how much the effect of the cosine wave should be exaggerated::
 
         `0` corresponds to a mathematically correct projection of a 90 degree rotation offset by 45 degrees.
 
